@@ -3,15 +3,15 @@
     {
       "username": "admin",
       "role": "admin",
-      "salt": "ec983d06bdf989f7dd5cdfa055aec556",
-      "hash": "93ad3135a665a1e6a44ad90eb58add4938de0b32325a03ca92875b2655cf18d4",
+      "salt": "3224d82bd1490cf0fe91d6f5f125f2d5",
+      "hash": "8da234a141035fb4dfaf733c35b3d04173da58c2cddcc38de57818491ede930d",
       "iterations": 210000
     },
     {
       "username": "editor",
       "role": "editor",
-      "salt": "71f24a552fe59ce7dca74abdd2696597",
-      "hash": "faac5c926a122a45c12017d51575d40fbd363e27a02fbe754115ce4b331a4b26",
+      "salt": "0bdae593a21f5175ab8bdcaa4ce42f6f",
+      "hash": "87dcadff9138a734793ca16512c11263993b65ecc1540caa46d3daa5228df7b0",
       "iterations": 210000
     }
   ]
