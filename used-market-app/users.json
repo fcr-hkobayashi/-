@@ -1,0 +1,18 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "role": "admin",
+      "salt": "ec983d06bdf989f7dd5cdfa055aec556",
+      "hash": "93ad3135a665a1e6a44ad90eb58add4938de0b32325a03ca92875b2655cf18d4",
+      "iterations": 210000
+    },
+    {
+      "username": "editor",
+      "role": "editor",
+      "salt": "71f24a552fe59ce7dca74abdd2696597",
+      "hash": "faac5c926a122a45c12017d51575d40fbd363e27a02fbe754115ce4b331a4b26",
+      "iterations": 210000
+    }
+  ]
+}

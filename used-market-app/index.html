@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>みらいや査定</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">買取店向け 中古相場ツール</p>
+          <h1>みらいや査定</h1>
+        </div>
+        <div class="status-pill">
+          <span class="dot"></span>
+          個人データ保存中
+          <a href="/editor">編集</a>
+          <a href="/logout">ログアウト</a>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="search-panel" aria-label="商品検索と条件">
+          <div class="photo-panel">
+            <label for="photoInput">商品写真</label>
+            <label class="photo-drop">
+              <input id="photoInput" type="file" accept="image/*" capture="environment" />
+              <img id="photoPreview" alt="" />
+              <span id="photoPlaceholder">撮影 / 選択</span>
+            </label>
+            <button id="photoSearchBtn" class="secondary-btn" type="button">写真から候補検索</button>
+            <button id="openAllMarketsBtn" class="secondary-btn" type="button">相場サイトを開く</button>
+          </div>
+
+          <div class="field-group">
+            <label for="searchInput">商品名・型番</label>
+            <div class="input-with-icon">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="例: iPhone 14 Pro 256GB" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field-group">
+              <label for="categorySelect">カテゴリ</label>
+              <select id="categorySelect">
+                <option value="all">すべて</option>
+                <option value="スマホ">スマホ</option>
+                <option value="時計">時計</option>
+                <option value="カメラ">カメラ</option>
+                <option value="ブランドバッグ">ブランドバッグ</option>
+                <option value="ゲーム機">ゲーム機</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="conditionSelect">状態</label>
+              <select id="conditionSelect">
+                <option value="1">S 未使用級</option>
+                <option value="0.92" selected>A 美品</option>
+                <option value="0.82">B 通常中古</option>
+                <option value="0.68">C 傷あり</option>
+                <option value="0.45">J ジャンク</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="switch-row">
+            <label><input id="boxCheck" type="checkbox" checked /> 箱あり</label>
+            <label><input id="accessoryCheck" type="checkbox" checked /> 付属品あり</label>
+            <label><input id="warrantyCheck" type="checkbox" /> 保証書あり</label>
+          </div>
+
+          <div class="sliders">
+            <label>
+              販売手数料 <strong><span id="feeValue">10</span>%</strong>
+              <input id="feeRange" type="range" min="0" max="25" value="10" />
+            </label>
+            <label>
+              目標粗利 <strong><span id="marginValue">28</span>%</strong>
+              <input id="marginRange" type="range" min="5" max="55" value="28" />
+            </label>
+            <label>
+              回転リスク控除 <strong><span id="riskValue">6</span>%</strong>
+              <input id="riskRange" type="range" min="0" max="30" value="6" />
+            </label>
+          </div>
+
+          <div class="market-inputs">
+            <div class="market-title">
+              <span>相場ソース</span>
+              <button id="clearMarketBtn" class="mini-btn" type="button">クリア</button>
+            </div>
+            <div class="market-source" data-market="aucfan">
+              <div class="source-heading">
+                <span>オークファン</span>
+                <button class="mini-btn" type="button" data-open-market="aucfan">開く</button>
+              </div>
+              <textarea id="aucfanPasteInput" rows="3" placeholder="価格が並んでいる部分を貼り付け"></textarea>
+              <div id="aucfanExtractSummary" class="extract-summary">0件</div>
+            </div>
+            <div class="market-source" data-market="yahoo">
+              <div class="source-heading">
+                <span>ヤフオク</span>
+                <button class="mini-btn" type="button" data-open-market="yahoo">開く</button>
+              </div>
+              <textarea id="yahooPasteInput" rows="3" placeholder="落札相場ページの価格テキストを貼り付け"></textarea>
+              <div id="yahooExtractSummary" class="extract-summary">0件</div>
+            </div>
+            <div class="market-source" data-market="mercari">
+              <div class="source-heading">
+                <span>メルカリ</span>
+                <button class="mini-btn" type="button" data-open-market="mercari">開く</button>
+              </div>
+              <textarea id="mercariPasteInput" rows="3" placeholder="販売済み商品の価格テキストを貼り付け"></textarea>
+              <div id="mercariExtractSummary" class="extract-summary">0件</div>
+            </div>
+            <div class="market-source" data-market="rakuma">
+              <div class="source-heading">
+                <span>楽天ラクマ</span>
+                <button class="mini-btn" type="button" data-open-market="rakuma">開く</button>
+              </div>
+              <textarea id="rakumaPasteInput" rows="3" placeholder="相場確認用の価格テキストを貼り付け"></textarea>
+              <div id="rakumaExtractSummary" class="extract-summary">0件</div>
+            </div>
+            <div class="market-source" data-market="shopping">
+              <div class="source-heading">
+                <span>Yahoo!ショッピング</span>
+                <button class="mini-btn" type="button" data-open-market="shopping">開く</button>
+              </div>
+              <textarea id="shoppingPasteInput" rows="3" placeholder="中古販売価格のテキストを貼り付け"></textarea>
+              <div id="shoppingExtractSummary" class="extract-summary">0件</div>
+            </div>
+            <div class="manual-grid">
+              <label>
+                相場手入力
+                <input id="manualMarketInput" type="number" inputmode="numeric" min="0" placeholder="例: 92500" />
+              </label>
+              <label>
+                参考買取額
+                <input id="manualBuyInput" type="number" inputmode="numeric" min="0" placeholder="任意" />
+              </label>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="saveQuoteBtn" class="primary-btn" type="button">査定を保存</button>
+            <button id="exportBtn" class="icon-btn" type="button" title="CSVを書き出し">⇩</button>
+            <label class="icon-btn file-btn" title="CSVを取り込み">
+              ⇧
+              <input id="importInput" type="file" accept=".csv,text/csv" />
+            </label>
+          </div>
+        </aside>
+
+        <section class="list-panel">
+          <div class="section-title">
+            <h2>相場データ</h2>
+            <span id="itemCount">0件</span>
+          </div>
+          <div id="itemList" class="item-list"></div>
+        </section>
+
+        <section class="history-panel">
+          <div class="section-title">
+            <h2>査定履歴</h2>
+            <button id="clearHistoryBtn" class="text-btn" type="button">クリア</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
