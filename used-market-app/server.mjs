@@ -8,7 +8,8 @@ import crypto from "node:crypto";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const usersPath = join(root, "users.json");
 const port = Number(process.env.PORT || 4173);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
+const publicEditor = process.env.PUBLIC_EDITOR === "true";
 const sessions = new Map();
 const editableFiles = new Set(["index.html", "styles.css", "app.js"]);
 const servedFiles = new Set(["index.html", "styles.css", "app.js", "login.html", "editor.html"]);
@@ -82,7 +83,14 @@ function getSession(req) {
 }
 
 function canEdit(session) {
-  return session && ["admin", "editor"].includes(session.user.role);
+  return publicEditor || (session && ["admin", "editor"].includes(session.user.role));
+}
+
+function getActiveSession(req) {
+  const session = getSession(req);
+  if (session) return session;
+  if (publicEditor) return { user: { username: "public-editor", role: "editor" } };
+  return null;
 }
 
 async function readBody(req) {
@@ -175,7 +183,7 @@ createServer(async (req, res) => {
       return;
     }
 
-    const session = getSession(req);
+    const session = getActiveSession(req);
     if (!session) return redirect(res, "/login");
 
     if (url.pathname.startsWith("/api/")) return handleApi(req, res, session, url);

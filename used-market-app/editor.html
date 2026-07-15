@@ -72,7 +72,7 @@
         <nav>
           <a href="/">アプリへ戻る</a>
           &nbsp;/&nbsp;
-          <a href="/logout">ログアウト</a>
+          <a id="logoutLink" href="/logout">ログアウト</a>
         </nav>
       </header>
       <section class="panel">
@@ -89,7 +89,15 @@
       const fileSelect = document.querySelector("#fileSelect");
       const editor = document.querySelector("#editor");
       const statusEl = document.querySelector("#status");
+      const logoutLink = document.querySelector("#logoutLink");
       const setStatus = (text) => { statusEl.textContent = text; };
+
+      async function loadUser() {
+        const response = await fetch("/api/me");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.user?.username === "public-editor") logoutLink.remove();
+      }
 
       async function loadFiles() {
         const response = await fetch("/api/files");
@@ -122,6 +130,7 @@
       fileSelect.addEventListener("change", loadFile);
       document.querySelector("#reloadBtn").addEventListener("click", loadFile);
       document.querySelector("#saveBtn").addEventListener("click", saveFile);
+      loadUser();
       loadFiles().catch((error) => setStatus(error.message));
     </script>
   </body>
