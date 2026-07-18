@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
@@ -10,7 +10,14 @@ const usersPath = join(root, "users.json");
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const publicEditor = process.env.PUBLIC_EDITOR === "true";
-const sessions = new Map();
+// セッションはメモリではなく署名付きCookieに保持する。
+// サーバー再起動（Renderのスリープ・再デプロイ）後もログイン状態が生き残る。
+// 鍵はusers.jsonの内容から導出するので、パスワードを変えると全端末のログインが無効化される。
+const sessionSecret = crypto
+  .createHash("sha256")
+  .update(process.env.SESSION_SECRET || readFileSync(usersPath, "utf8"))
+  .digest();
+const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 365;
 const editableFiles = new Set(["index.html", "styles.css", "app.js"]);
 const servedFiles = new Set(["index.html", "styles.css", "app.js", "login.html", "editor.html"]);
 
@@ -65,21 +72,29 @@ async function verifyPassword(username, password) {
 }
 
 function createSession(user) {
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
-  return token;
+  const payload = Buffer.from(
+    JSON.stringify({ u: user.username, r: user.role, exp: Date.now() + sessionMaxAgeMs }),
+  ).toString("base64url");
+  const signature = crypto.createHmac("sha256", sessionSecret).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
 }
 
 function getSession(req) {
   const token = parseCookies(req).miraiya_session;
   if (!token) return null;
-  const session = sessions.get(token);
-  if (!session) return null;
-  if (session.expiresAt < Date.now()) {
-    sessions.delete(token);
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac("sha256", sessionSecret).update(payload).digest("base64url");
+  const given = Buffer.from(signature);
+  const wanted = Buffer.from(expected);
+  if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof data.exp !== "number" || data.exp < Date.now()) return null;
+    return { user: { username: data.u, role: data.r } };
+  } catch {
     return null;
   }
-  return session;
 }
 
 function canEdit(session) {
@@ -126,7 +141,7 @@ async function handleLogin(req, res) {
   const token = createSession(user);
   res.writeHead(302, {
     Location: "/",
-    "Set-Cookie": `miraiya_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`,
+    "Set-Cookie": `miraiya_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionMaxAgeMs / 1000)}`,
   });
   res.end();
 }
@@ -173,8 +188,6 @@ createServer(async (req, res) => {
     if (url.pathname === "/login" && req.method === "POST") return handleLogin(req, res);
 
     if (url.pathname === "/logout") {
-      const token = parseCookies(req).miraiya_session;
-      if (token) sessions.delete(token);
       res.writeHead(302, {
         Location: "/login",
         "Set-Cookie": "miraiya_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
