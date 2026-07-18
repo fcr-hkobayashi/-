@@ -499,6 +499,7 @@ function extractPrices(text) {
 function renderExtractSummary(element, text) {
   const all = extractPrices(text);
   const filtered = withoutOutliers(all);
+  element.classList.toggle("has-data", all.length > 0);
   if (!all.length) {
     element.textContent = "0件";
     return;

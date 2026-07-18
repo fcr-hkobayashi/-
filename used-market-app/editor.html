@@ -6,32 +6,32 @@
     <title>アプリ編集 | みらいや査定</title>
     <style>
       :root {
-        color-scheme: dark;
-        --ink: #edf4ff;
-        --muted: #9fb1cc;
-        --line: #28476d;
-        --panel: #10233d;
-        --input: #0a192d;
-        --brand: #4f8cff;
+        color-scheme: light;
+        --ink: #1b2637;
+        --muted: #51617a;
+        --line: #d9e0ea;
+        --panel: #ffffff;
+        --input: #ffffff;
+        --brand: #1c3563;
+        --accent: #2e5aa8;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        background:
-          radial-gradient(circle at 16% 0%, rgba(79, 140, 255, 0.2), transparent 34rem),
-          linear-gradient(180deg, #0b1b31 0%, #071426 56%, #050d19 100%);
+        background: #f3f5f8;
         color: var(--ink);
-        font-family: Inter, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
       }
       main { width: min(1280px, 100%); margin: 0 auto; padding: 24px; }
       header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-      h1 { margin: 0; font-size: 30px; }
-      a { color: #8bb7ff; font-weight: 800; text-decoration: none; }
+      h1 { margin: 0; font-size: 26px; color: var(--brand); }
+      a { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
       .panel {
         border: 1px solid var(--line);
-        border-radius: 8px;
-        background: rgba(16, 35, 61, 0.94);
+        border-radius: 14px;
+        background: var(--panel);
         overflow: hidden;
+        box-shadow: 0 1px 2px rgba(20, 32, 54, 0.06), 0 8px 24px rgba(20, 32, 54, 0.07);
       }
       .toolbar {
         display: flex;
@@ -39,30 +39,39 @@
         gap: 10px;
         padding: 12px;
         border-bottom: 1px solid var(--line);
+        background: #f7f9fc;
       }
       select, button {
         min-height: 40px;
-        border-radius: 8px;
-        border: 1px solid var(--line);
+        border-radius: 10px;
+        border: 1px solid #c2cede;
         background: var(--input);
         color: var(--ink);
         font: inherit;
       }
       select { padding: 0 10px; }
-      button { padding: 0 14px; cursor: pointer; font-weight: 900; }
+      select:focus, button:focus-visible {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(46, 90, 168, 0.25);
+      }
+      button { padding: 0 14px; cursor: pointer; font-weight: 700; color: var(--brand); }
+      button:hover { background: #eef3fa; }
       button.primary { border: 0; background: var(--brand); color: white; }
+      button.primary:hover { background: #16294d; }
       textarea {
         width: 100%;
         min-height: calc(100vh - 180px);
         display: block;
         padding: 16px;
         border: 0;
-        background: #071426;
-        color: #edf4ff;
+        background: #ffffff;
+        color: #1b2637;
         font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         resize: vertical;
       }
-      #status { margin-left: auto; color: var(--muted); font-weight: 800; }
+      textarea:focus { outline: none; }
+      #status { margin-left: auto; color: var(--muted); font-weight: 700; }
     </style>
   </head>
   <body>
