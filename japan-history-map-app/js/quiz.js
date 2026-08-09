@@ -63,6 +63,26 @@ function buildQuestion(mode, event, pool) {
       answer: event.title,
     };
   }
+  if (mode === 'desc') {
+    const distractors = sample(others.filter(e => e.cat === event.cat), 3);
+    const pad = sample(others.filter(e => !distractors.includes(e)), 3 - distractors.length);
+    const options = [...distractors, ...pad].slice(0, 3);
+    return {
+      event,
+      prompt: `${formatYear(event.year)}、${event.pref}で起きた「${event.title}」の説明として正しいものはどれ?`,
+      choices: shuffle([event.desc, ...options.map(e => e.desc)]),
+      answer: event.desc,
+    };
+  }
+  if (mode === 'figure') {
+    const distractors = sample(others.filter(e => e.figure && e.figure !== event.figure), 3);
+    return {
+      event,
+      prompt: `${formatYear(event.year)}に起きた「${event.title}」に最も関係が深い人物は誰?`,
+      choices: shuffle([event.figure, ...distractors.map(e => e.figure)]),
+      answer: event.figure,
+    };
+  }
   // mode === 'year'
   const nearYears = sample(others, 8).map(e => e.year).filter(y => y !== event.year);
   const distractorYears = [];
@@ -83,6 +103,12 @@ function buildQuestion(mode, event, pool) {
   };
 }
 
+function availableModesFor(event) {
+  const modes = ['year', 'pref', 'event', 'desc'];
+  if (event.figure) modes.push('figure');
+  return modes;
+}
+
 export function initQuiz(root) {
   root.innerHTML = `
     <div class="quiz-setup" id="quizSetup">
@@ -93,6 +119,8 @@ export function initQuiz(root) {
         <label><input type="radio" name="qmode" value="year" checked>年号当て</label>
         <label><input type="radio" name="qmode" value="pref">場所当て</label>
         <label><input type="radio" name="qmode" value="event">できごと当て</label>
+        <label><input type="radio" name="qmode" value="desc">内容当て</label>
+        <label><input type="radio" name="qmode" value="figure">人物当て</label>
         <label><input type="radio" name="qmode" value="mix">ミックス</label>
       </fieldset>
       <fieldset class="quiz-era-group" id="quizEraGroup">
@@ -182,9 +210,10 @@ export function initQuiz(root) {
   }
 
   function startSession(pool, mode) {
-    if (pool.length < 4) pool = EVENTS; // 選択範囲が狭すぎる場合は全体から
+    if (mode === 'figure') pool = pool.filter(e => e.figure);
+    if (pool.length < 4) pool = mode === 'figure' ? EVENTS.filter(e => e.figure) : EVENTS; // 選択範囲が狭すぎる場合は全体から
     const targets = sample(pool, Math.min(QUESTIONS_PER_ROUND, pool.length));
-    const questions = targets.map(ev => buildQuestion(mode === 'mix' ? sample(['year', 'pref', 'event'], 1)[0] : mode, ev, EVENTS));
+    const questions = targets.map(ev => buildQuestion(mode === 'mix' ? sample(availableModesFor(ev), 1)[0] : mode, ev, EVENTS));
     session = { questions, idx: 0, score: 0, wrongList: [] };
     setupEl.hidden = true;
     resultEl.hidden = true;
