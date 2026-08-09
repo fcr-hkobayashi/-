@@ -1,5 +1,5 @@
 // クイズ機能: 年号当て / 場所当て / できごと当て + 間違えた問題の復習(簡易間隔反復)
-import { EVENTS, PREFECTURES, CATEGORY_META, ERAS, eraOf } from './data.js';
+import { EVENTS, PREFECTURES, CATEGORY_META, ERAS, eraOf, formatYear, MIN_YEAR } from './data.js';
 
 const STATS_KEY = 'jhma_quiz_stats_v1';
 const HISTORY_KEY = 'jhma_quiz_history_v1';
@@ -47,7 +47,7 @@ function buildQuestion(mode, event, pool) {
     }
     return {
       event,
-      prompt: `${event.year}年に起きた「${event.title}」。関係が深い都道府県はどれ?`,
+      prompt: `${formatYear(event.year)}に起きた「${event.title}」。関係が深い都道府県はどれ?`,
       choices: shuffle([event.pref, ...distractorPrefs]),
       answer: event.pref,
     };
@@ -58,7 +58,7 @@ function buildQuestion(mode, event, pool) {
     const options = [...distractors, ...pad].slice(0, 3);
     return {
       event,
-      prompt: `${event.year}年、${event.pref}で起きたできごとはどれ?`,
+      prompt: `${formatYear(event.year)}、${event.pref}で起きたできごとはどれ?`,
       choices: shuffle([event.title, ...options.map(e => e.title)]),
       answer: event.title,
     };
@@ -71,14 +71,15 @@ function buildQuestion(mode, event, pool) {
     if (!distractorYears.includes(y)) distractorYears.push(y);
   }
   while (distractorYears.length < 3) {
-    const y = event.year + (Math.floor(Math.random() * 20) - 10) * (Math.random() < 0.5 ? 1 : 3);
-    if (y !== event.year && y >= 1600 && y <= new Date().getFullYear() && !distractorYears.includes(y)) distractorYears.push(y);
+    const spread = Math.max(20, Math.round(Math.abs(event.year) * 0.05) + 20);
+    const y = event.year + (Math.floor(Math.random() * spread) - Math.floor(spread / 2)) * (Math.random() < 0.5 ? 1 : 3);
+    if (y !== event.year && y >= MIN_YEAR && y <= new Date().getFullYear() && !distractorYears.includes(y)) distractorYears.push(y);
   }
   return {
     event,
     prompt: `「${event.title}」(${event.pref})が起きたのは何年?`,
-    choices: shuffle([event.year, ...distractorYears]).map(String),
-    answer: String(event.year),
+    choices: shuffle([event.year, ...distractorYears]).map(formatYear),
+    answer: formatYear(event.year),
   };
 }
 
@@ -284,7 +285,7 @@ export function initQuiz(root) {
       for (const q of session.wrongList) {
         const li = document.createElement('li');
         const meta = CATEGORY_META[q.event.cat];
-        li.innerHTML = `<b>${q.event.year}年 ${q.event.title}</b>(${q.event.pref}・${meta.label}) — ${q.event.desc}`;
+        li.innerHTML = `<b>${formatYear(q.event.year)} ${q.event.title}</b>(${q.event.pref}・${meta.label}) — ${q.event.desc}`;
         listEl.appendChild(li);
       }
     }

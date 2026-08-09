@@ -176,7 +176,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
 .event-item:hover { background: var(--accent-soft); }
 .event-item.active { background: var(--accent-soft); font-weight: 700; }
 .event-item .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.event-item .event-year { width: 3.6em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.event-item .event-year { width: 8em; flex: none; color: var(--accent); font-variant-numeric: tabular-nums; font-size: 0.78rem; white-space: nowrap; }
 .event-item .event-title { flex: 1; }
 .event-item .event-pref { color: var(--ink-soft); font-size: 0.8rem; }
 
