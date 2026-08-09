@@ -1,5 +1,5 @@
 // 日本地図(簡略化・低ポリゴン)の描画とピンの配置
-import { CATEGORY_META } from './data.js';
+import { CATEGORY_META, formatYear } from './data.js';
 
 export const VIEW_W = 620;
 export const VIEW_H = 720;
@@ -96,18 +96,43 @@ function projectEvent(ev) {
   return ev.pref === '沖縄県' ? projectOkinawa([ev.lon, ev.lat]) : project([ev.lon, ev.lat]);
 }
 
+// 同一座標に複数の出来事が集中する場合(東京・京都など)、ピンが完全に重なって
+// クリックできなくなるのを防ぐため、グループごとに小さな円状にずらして配置する。
+function spreadOverlaps(positioned) {
+  const groups = new Map();
+  for (const item of positioned) {
+    const key = `${Math.round(item.x)},${Math.round(item.y)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const radius = Math.min(6 + group.length * 1.1, 22);
+    group.forEach((item, i) => {
+      const angle = (2 * Math.PI * i) / group.length - Math.PI / 2;
+      item.x += radius * Math.cos(angle);
+      item.y += radius * Math.sin(angle);
+    });
+  }
+  return positioned;
+}
+
 export function renderPins(svg, events, { selectedId, onSelect } = {}) {
   const layer = svg.querySelector('[data-layer="pins"]');
   layer.innerHTML = '';
 
-  for (const ev of events) {
+  const positioned = spreadOverlaps(events.map(ev => {
     const [x, y] = projectEvent(ev);
+    return { ev, x, y };
+  }));
+
+  for (const { ev, x, y } of positioned) {
     const color = CATEGORY_META[ev.cat]?.color ?? '#495057';
     const g = el('g', {
       class: 'pin' + (ev.id === selectedId ? ' pin-selected' : ''),
       tabindex: '0',
       role: 'button',
-      'aria-label': `${ev.year}年 ${ev.title}`,
+      'aria-label': `${formatYear(ev.year)} ${ev.title}`,
       'data-id': ev.id,
     });
     g.appendChild(el('circle', { cx: x, cy: y, r: ev.id === selectedId ? 8 : 5.5, fill: color }));

@@ -1,6 +1,6 @@
-// 日本史データ (1600年〜現在)
+// 日本史データ (縄文時代〜現代)
 // 内容・用語は文部科学省 学習指導要領(中学校社会・歴史的分野/高校 歴史総合・日本史探求)で
-// 扱われる標準的な出来事・呼称に沿って選定しています。
+// 扱われる標準的な出来事・呼称に沿って選定しています。年代に諸説あるものは本文中に付記しています。
 
 export const CATEGORY_META = {
   politics: { label: '政治', color: '#3b5bdb' },
@@ -11,19 +11,37 @@ export const CATEGORY_META = {
   culture:  { label: '文化・社会', color: '#1098ad' },
 };
 
+// from/to は西暦年(紀元前は負の値)。to は「その時代の最後の年」を表す。
 export const ERAS = [
-  { id: 'edo',    label: '江戸', from: 1600, to: 1868 },
-  { id: 'meiji',  label: '明治', from: 1868, to: 1912 },
-  { id: 'taisho', label: '大正', from: 1912, to: 1926 },
-  { id: 'showa',  label: '昭和', from: 1926, to: 1989 },
-  { id: 'heisei', label: '平成', from: 1989, to: 2019 },
-  { id: 'reiwa',  label: '令和', from: 2019, to: 2100 },
+  { id: 'jomon',    label: '縄文', from: -13000, to: -400 },
+  { id: 'yayoi',    label: '弥生', from: -400,   to: 300 },
+  { id: 'kofun',    label: '古墳', from: 300,    to: 592 },
+  { id: 'asuka',    label: '飛鳥', from: 592,    to: 710 },
+  { id: 'nara',     label: '奈良', from: 710,    to: 794 },
+  { id: 'heian',    label: '平安', from: 794,    to: 1185 },
+  { id: 'kamakura', label: '鎌倉', from: 1185,   to: 1333 },
+  { id: 'muromachi',label: '室町・戦国', from: 1333, to: 1573 },
+  { id: 'azumomo',  label: '安土桃山', from: 1573, to: 1603 },
+  { id: 'edo',      label: '江戸', from: 1603,   to: 1868 },
+  { id: 'meiji',    label: '明治', from: 1868,   to: 1912 },
+  { id: 'taisho',   label: '大正', from: 1912,   to: 1926 },
+  { id: 'showa',    label: '昭和', from: 1926,   to: 1989 },
+  { id: 'heisei',   label: '平成', from: 1989,   to: 2019 },
+  { id: 'reiwa',    label: '令和', from: 2019,   to: 3000 },
 ];
 
 export function eraOf(year) {
-  return ERAS.find(e => year >= e.from && year < e.to + (e.id === 'reiwa' ? 0 : 1))?.id
+  return ERAS.find(e => year >= e.from && year <= e.to)?.id
     ?? ERAS[ERAS.length - 1].id;
 }
+
+// 西暦年を表示用文字列に変換(紀元前は負の値で保持)
+export function formatYear(year) {
+  if (year < 0) return `紀元前${Math.abs(year)}年`;
+  return `${year}年`;
+}
+
+export const MIN_YEAR = ERAS[0].from;
 
 export const PREFECTURES = [
   '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
@@ -37,15 +55,168 @@ export const PREFECTURES = [
 
 // lon, lat は都道府県庁所在地・史跡等のおおよその座標
 export const EVENTS = [
+  // ==== 縄文時代 ====
+  { id: 'jomon_start', year: -13000, title: '縄文時代の始まり', pref: '青森県', lon: 140.70, lat: 40.82, cat: 'culture',
+    desc: '土器の使用や竪穴住居での定住的な暮らしが始まったとされる時代。狩猟・採集・漁労を中心とした生活が営まれた。' },
+  { id: 'sannai_maruyama', year: -3900, title: '三内丸山遺跡の集落形成', pref: '青森県', lon: 140.70, lat: 40.82, cat: 'culture',
+    desc: '大規模な縄文集落遺跡。大型掘立柱建物跡や大量の土器・土偶が出土し、定住生活の実態を伝える代表的な遺跡。' },
+  { id: 'jomon_end', year: -400, title: '縄文時代の終わりごろ', pref: '佐賀県', lon: 130.30, lat: 33.42, cat: 'culture',
+    desc: '大陸から稲作技術が伝わり始め、社会は狩猟・採集中心の縄文文化から農耕を基盤とする弥生文化へと移行していった。' },
+
+  // ==== 弥生時代 ====
+  { id: 'inasaku', year: -400, title: '稲作の伝来と定着', pref: '佐賀県', lon: 130.30, lat: 33.42, cat: 'economy',
+    desc: '大陸・朝鮮半島から水稲耕作の技術が伝わり、まず北部九州、やがて西日本を中心に広まった。' },
+  { id: 'yoshinogari', year: -200, title: '「クニ」の形成(吉野ヶ里遺跡など)', pref: '佐賀県', lon: 130.38, lat: 33.32, cat: 'politics',
+    desc: '環濠集落を中心に「クニ」と呼ばれる小さな政治的まとまりが各地に生まれた。吉野ヶ里遺跡はその代表例。' },
+  { id: 'kan_no_wa', year: 57, title: '「漢委奴国王」金印の授与', pref: '福岡県', lon: 130.42, lat: 33.59, cat: 'diplomacy',
+    desc: '倭の奴国の王が後漢に使いを送り、光武帝から金印を授かったと中国の歴史書『後漢書』東夷伝に記されている。' },
+  { id: 'himiko', year: 239, title: '卑弥呼が魏に使者を送る', pref: '福岡県', lon: 130.52, lat: 33.51, cat: 'diplomacy',
+    desc: '邪馬台国の女王卑弥呼が魏に使いを送り、「親魏倭王」の称号と金印を授かったと『魏志』倭人伝に記される。邪馬台国の所在地は畿内説・九州説など諸説ある。' },
+
+  // ==== 古墳時代 ====
+  { id: 'kofun_keyhole', year: 350, title: '前方後円墳の広まり', pref: '奈良県', lon: 135.84, lat: 34.54, cat: 'culture',
+    desc: '大和地方を中心に前方後円墳が各地に築かれるようになり、大和政権(ヤマト王権)の勢力拡大を示している。' },
+  { id: 'inariyama_sword', year: 471, title: '稲荷山古墳出土鉄剣の銘文', pref: '埼玉県', lon: 139.45, lat: 36.14, cat: 'culture',
+    desc: '「獲加多支鹵大王(ワカタケル大王)」の文字が刻まれた鉄剣が出土し、ヤマト王権の勢力が関東にまで及んでいたことを示す。' },
+  { id: 'bukkyo_denrai', year: 538, title: '仏教の公伝', pref: '奈良県', lon: 135.78, lat: 34.50, cat: 'culture',
+    desc: '百済の聖明王から仏像・経典が伝えられたとされる(552年とする説もある)。以後の日本文化に大きな影響を与えた。' },
+  { id: 'soga_mononobe', year: 587, title: '蘇我氏と物部氏の争い', pref: '大阪府', lon: 135.60, lat: 34.55, cat: 'war',
+    desc: '仏教の受容をめぐり対立していた蘇我馬子と物部守屋が武力衝突。蘇我氏が勝利し、朝廷内での権力を強めた。' },
+
+  // ==== 飛鳥時代 ====
+  { id: 'suiko_sokui', year: 592, title: '推古天皇の即位', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'politics',
+    desc: '日本初の女性天皇が即位し、甥の厩戸王(聖徳太子)が摂政として政治を補佐した。' },
+  { id: 'kanni12', year: 603, title: '冠位十二階の制定', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'politics',
+    desc: '家柄によらず才能や功績で人材を登用しようとした制度。聖徳太子による政治改革の一つとされる。' },
+  { id: 'kenpo17', year: 604, title: '十七条の憲法の制定', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'politics',
+    desc: '「和を以て貴しと為す」など、役人としての心構えを示したもの。日本最初の成文法の一つとされる。' },
+  { id: 'kenzuishi', year: 607, title: '遣隋使の派遣(小野妹子)', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'diplomacy',
+    desc: '小野妹子が隋に派遣され、対等な立場を求める国書を届けた。隋の進んだ制度・文化を学ぶ目的もあった。' },
+  { id: 'taika', year: 645, title: '乙巳の変・大化の改新', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'politics',
+    desc: '中大兄皇子・中臣鎌足らが蘇我入鹿を倒した(乙巳の変)のち、公地公民をめざす一連の政治改革(大化の改新)が始まった。' },
+  { id: 'hakusukinoe', year: 663, title: '白村江の戦い', pref: '福岡県', lon: 130.52, lat: 33.51, cat: 'war',
+    desc: '百済復興を助けるため朝鮮半島に出兵した倭国軍が唐・新羅の連合軍に大敗。以後、国内の防衛体制が強化された。' },
+  { id: 'jinshin', year: 672, title: '壬申の乱', pref: '岐阜県', lon: 136.47, lat: 35.37, cat: 'war',
+    desc: '天智天皇の死後に起きた皇位継承をめぐる内乱。大海人皇子が勝利し、即位して天武天皇となった。' },
+  { id: 'taihoritsuryo', year: 701, title: '大宝律令の制定', pref: '奈良県', lon: 135.82, lat: 34.47, cat: 'politics',
+    desc: '唐の律令にならった本格的な法典が完成。刑罰(律)と行政の仕組み(令)が整い、律令国家の基盤となった。' },
+
+  // ==== 奈良時代 ====
+  { id: 'heijokyo', year: 710, title: '平城京への遷都', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'politics',
+    desc: '唐の長安にならった本格的な都城・平城京に都が移された。奈良時代の始まり。' },
+  { id: 'kojiki', year: 712, title: '『古事記』の完成', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'culture',
+    desc: '現存する日本最古の歴史書。神話の時代から推古天皇の時代までの出来事がまとめられている。' },
+  { id: 'nihonshoki', year: 720, title: '『日本書紀』の完成', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'culture',
+    desc: '国家によって編纂された正史。漢文体で神代から持統天皇の時代までが記されている。' },
+  { id: 'konden_einen', year: 743, title: '墾田永年私財法の制定', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'economy',
+    desc: '新しく開墾した土地の永久私有を認めた法令。公地公民の原則が崩れ、のちの荘園発生の一因となった。' },
+  { id: 'daibutsu', year: 752, title: '東大寺大仏の開眼供養', pref: '奈良県', lon: 135.84, lat: 34.69, cat: 'culture',
+    desc: '聖武天皇の発願で建立された東大寺の盧舎那大仏(奈良の大仏)が完成し、盛大な開眼式が行われた。' },
+  { id: 'manyoshu', year: 759, title: '『万葉集』の成立(諸説あり)', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'culture',
+    desc: '現存する最古の和歌集。天皇から農民まで幅広い身分の人々の歌、約4500首が収められている。' },
+  { id: 'dokyo', year: 764, title: '恵美押勝の乱・道鏡の台頭', pref: '奈良県', lon: 135.80, lat: 34.69, cat: 'politics',
+    desc: '藤原仲麻呂(恵美押勝)の反乱が鎮圧された後、僧の道鏡が孝謙(称徳)天皇の信任を得て政治的影響力を強めた。' },
+
+  // ==== 平安時代 ====
+  { id: 'heiankyo', year: 794, title: '平安京への遷都', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '桓武天皇が長岡京を経て平安京に都を移した。以後、約400年にわたり都であり続ける平安時代の始まり。' },
+  { id: 'saicho_kukai', year: 806, title: '最澄・空海が唐から帰国', pref: '京都府', lon: 135.79, lat: 35.03, cat: 'culture',
+    desc: '最澄は比叡山で天台宗を、空海は高野山で真言宗を開き、平安仏教の新たな潮流を生んだ。' },
+  { id: 'fujiwara_sekkan', year: 858, title: '藤原良房が摂政に就任', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '人臣として初めて摂政となった。以後、藤原氏が天皇の外戚として実権を握る摂関政治が本格化していった。' },
+  { id: 'sugawara', year: 894, title: '遣唐使の停止', pref: '福岡県', lon: 130.42, lat: 33.59, cat: 'diplomacy',
+    desc: '菅原道真の提案により遣唐使の派遣が停止された。中国文化の影響が薄まり、国風文化が発展する一因となった。' },
+  { id: 'genji_monogatari', year: 1008, title: '『源氏物語』が広まる(紫式部)', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'culture',
+    desc: '紫式部による長編物語。仮名文字を用いて日本独自の感情表現を豊かに描いた、国風文化を代表する文学作品。' },
+  { id: 'zenkunen', year: 1051, title: '前九年の役', pref: '岩手県', lon: 141.15, lat: 39.70, cat: 'war',
+    desc: '陸奥国で起きた戦乱(〜1062年)。源頼義・義家が安倍氏を鎮圧し、東国における源氏の勢力基盤が広がった。' },
+  { id: 'insei', year: 1086, title: '院政の開始(白河上皇)', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '白河天皇が譲位後も上皇として政治の実権を握る院政を開始した。摂関政治にかわる新しい政治形態となった。' },
+  { id: 'hogen', year: 1156, title: '保元の乱', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'war',
+    desc: '皇位や摂関家の内紛に武士が動員された争乱。平清盛・源義朝らが活躍し、武士の政治的地位が高まった。' },
+  { id: 'heiji', year: 1159, title: '平治の乱', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'war',
+    desc: '平清盛と源義朝の対立から起きた戦乱。清盛が勝利し、平氏による政権樹立への道を開いた。' },
+  { id: 'taira_seiken', year: 1167, title: '平清盛が太政大臣に就任', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '武士として初めて太政大臣となり、平氏政権が確立した。日宋貿易を積極的に推進したことでも知られる。' },
+  { id: 'jisho_juei', year: 1180, title: '治承・寿永の乱(源平合戦)の始まり', pref: '静岡県', lon: 138.90, lat: 35.10, cat: 'war',
+    desc: '以仁王の令旨をきっかけに源頼朝・木曾義仲らが挙兵。平氏と源氏による全国的な内乱が始まった。' },
+  { id: 'dannoura', year: 1185, title: '壇ノ浦の戦い・平氏の滅亡', pref: '山口県', lon: 130.94, lat: 33.95, cat: 'war',
+    desc: '源義経らの活躍により平氏が滅亡。源頼朝による武家政権樹立の流れが決定的となった。' },
+
+  // ==== 鎌倉時代 ====
+  { id: 'shugo_jito', year: 1185, title: '守護・地頭の設置', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'politics',
+    desc: '源頼朝が国ごとに守護、荘園・公領ごとに地頭を置くことを朝廷に認めさせた。近年はこの年を鎌倉幕府成立とする説が有力。' },
+  { id: 'seii_taishogun', year: 1192, title: '源頼朝が征夷大将軍に就任', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'politics',
+    desc: '鎌倉に本格的な武家政権(鎌倉幕府)が成立。以後、武士による全国支配の時代が始まった(幕府成立年は諸説あり)。' },
+  { id: 'hojo_shikken', year: 1203, title: '北条氏による執権政治の確立', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'politics',
+    desc: '源氏の将軍が三代で絶えた後、北条氏が執権として将軍を補佐し、幕政の実権を握る体制が確立した。' },
+  { id: 'jokyu', year: 1221, title: '承久の乱', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'war',
+    desc: '後鳥羽上皇が幕府打倒を企てるが敗北。幕府は京都に六波羅探題を置き、朝廷への監視と西国支配を強めた。' },
+  { id: 'goseibai', year: 1232, title: '御成敗式目(貞永式目)の制定', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'politics',
+    desc: '武家社会の慣習をもとにした最初の武家法。執権北条泰時が制定し、後の武家法の基本となった。' },
+  { id: 'shinbutsu_kamakura', year: 1224, title: '鎌倉新仏教の広まり', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'culture',
+    desc: '法然の浄土宗、親鸞の浄土真宗、道元の曹洞宗、日蓮の日蓮宗など、わかりやすい教えの仏教が民衆の間に広まった。' },
+  { id: 'bunei', year: 1274, title: '文永の役(元寇)', pref: '福岡県', lon: 130.42, lat: 33.59, cat: 'war',
+    desc: '元(モンゴル)・高麗の連合軍が九州北部に襲来。集団戦法や火薬兵器(てつはう)に幕府軍は苦戦した。' },
+  { id: 'koan', year: 1281, title: '弘安の役(元寇)', pref: '福岡県', lon: 130.42, lat: 33.59, cat: 'war',
+    desc: '再び襲来した元軍を、防塁の備えや暴風雨(いわゆる神風)もあり撃退。恩賞不足への御家人の不満が幕府弱体化を招いた。' },
+  { id: 'eininotokusei', year: 1297, title: '永仁の徳政令', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'economy',
+    desc: '元寇後に困窮した御家人を救うため、売却・質入れした土地を無償で取り戻させる法令が出された。' },
+  { id: 'kamakura_metsubo', year: 1333, title: '鎌倉幕府の滅亡', pref: '神奈川県', lon: 139.55, lat: 35.32, cat: 'war',
+    desc: '後醍醐天皇や新田義貞・足利尊氏らの挙兵により、約150年続いた鎌倉幕府が滅亡した。' },
+
+  // ==== 建武の新政・南北朝・室町(戦国)時代 ====
+  { id: 'kenmu', year: 1334, title: '建武の新政', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '後醍醐天皇による天皇中心の新しい政治。公家を重視した政策に武士の不満が高まり、わずか2年余りで崩壊した。' },
+  { id: 'muromachi_bakufu', year: 1338, title: '室町幕府の成立(足利尊氏)', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '足利尊氏が征夷大将軍に就任し室町幕府を開いた。同時期、後醍醐天皇は吉野へ逃れ、南北朝の内乱が始まった。' },
+  { id: 'nanbokucho_goitsu', year: 1392, title: '南北朝の合一', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '三代将軍足利義満のもとで南朝と北朝が統一され、約60年続いた分裂状態が終わった。' },
+  { id: 'kinkakuji', year: 1397, title: '金閣(鹿苑寺)の建立', pref: '京都府', lon: 135.73, lat: 35.04, cat: 'culture',
+    desc: '足利義満が建てた別荘。公家文化と武家文化が融合した、北山文化を象徴する建築とされる。' },
+  { id: 'nichimin', year: 1404, title: '日明貿易(勘合貿易)の開始', pref: '大阪府', lon: 135.48, lat: 34.58, cat: 'economy',
+    desc: '足利義満が明との間で勘合を用いた朝貢形式の貿易を開始。銅銭や生糸などがもたらされ、幕府の財源となった。' },
+  { id: 'onin', year: 1467, title: '応仁の乱', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'war',
+    desc: '将軍家や有力守護大名の家督争いから京都で始まった大規模な内乱(〜1477年)。戦国時代の幕開けとされる。' },
+  { id: 'ikkoikki_kaga', year: 1488, title: '加賀の一向一揆', pref: '石川県', lon: 136.66, lat: 36.59, cat: 'war',
+    desc: '浄土真宗(一向宗)の門徒たちが守護大名の富樫氏を倒し、以後約100年にわたり自治を行った。' },
+  { id: 'ginkakuji', year: 1489, title: '銀閣(慈照寺)の建立', pref: '京都府', lon: 135.80, lat: 35.03, cat: 'culture',
+    desc: '足利義政が建てた別荘。簡素で落ち着いた東山文化・書院造を代表する建築とされる。' },
+  { id: 'teppo_denrai', year: 1543, title: '鉄砲の伝来', pref: '鹿児島県', lon: 130.97, lat: 30.73, cat: 'culture',
+    desc: '種子島にポルトガル人を乗せた中国船が漂着し、鉄砲が伝えられた。以後の戦術・築城法に大きな影響を与えた。' },
+  { id: 'kirisutokyo_denrai', year: 1549, title: 'キリスト教の伝来(フランシスコ・ザビエル)', pref: '鹿児島県', lon: 130.56, lat: 31.60, cat: 'diplomacy',
+    desc: 'イエズス会宣教師フランシスコ・ザビエルが鹿児島に上陸し、日本での布教を開始した。' },
+  { id: 'okehazama', year: 1560, title: '桶狭間の戦い', pref: '愛知県', lon: 136.91, lat: 35.18, cat: 'war',
+    desc: '織田信長が奇襲によって今川義元を破った戦い。信長が全国的に台頭していく大きな契機となった。' },
+
+  // ==== 安土桃山時代 ====
+  { id: 'muromachi_metsubo', year: 1573, title: '室町幕府の滅亡', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '織田信長が十五代将軍足利義昭を京都から追放し、室町幕府が事実上滅亡した。' },
+  { id: 'nagashino', year: 1575, title: '長篠の戦い', pref: '愛知県', lon: 137.62, lat: 34.91, cat: 'war',
+    desc: '織田・徳川連合軍が鉄砲を効果的に用いて武田勝頼の騎馬隊を破った戦い。' },
+  { id: 'azuchijo', year: 1579, title: '安土城の完成', pref: '滋賀県', lon: 136.14, lat: 35.14, cat: 'culture',
+    desc: '織田信長が琵琶湖畔に築いた壮大な城。天下統一への拠点であり、安土桃山文化を象徴する建築でもあった。' },
+  { id: 'honnoji', year: 1582, title: '本能寺の変', pref: '京都府', lon: 135.75, lat: 35.01, cat: 'war',
+    desc: '家臣の明智光秀が織田信長を襲い自害に追い込んだ事件。信長の天下統一事業は豊臣秀吉に引き継がれた。' },
+  { id: 'taikokenchi', year: 1582, title: '太閤検地の開始', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'economy',
+    desc: '豊臣秀吉が全国の田畑の面積・収穫量を統一的な基準で調査。年貢徴収の基盤が整い、荘園制は完全に解体された。' },
+  { id: 'katanagari', year: 1588, title: '刀狩令の発布', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
+    desc: '農民から刀・弓・鉄砲などの武器を没収する法令。兵農分離が進み、武士と農民の身分の区別が明確になった。' },
+  { id: 'hideyoshi_touitsu', year: 1590, title: '豊臣秀吉の天下統一', pref: '神奈川県', lon: 139.16, lat: 35.26, cat: 'politics',
+    desc: '小田原の北条氏を降し、秀吉が全国統一を達成した。' },
+
+  // ==== 江戸時代 ====
   { id: 'sekigahara', year: 1600, title: '関ヶ原の戦い', pref: '岐阜県', lon: 136.47, lat: 35.37, cat: 'war',
     desc: '徳川家康率いる東軍と石田三成率いる西軍が関ヶ原(美濃)で激突。東軍が勝利し、徳川家の覇権を決定づけた。' },
   { id: 'edobakufu', year: 1603, title: '江戸幕府の成立', pref: '東京都', lon: 139.77, lat: 35.68, cat: 'politics',
     desc: '徳川家康が征夷大将軍に任じられ、江戸に幕府を開く。以後260年余り続く幕藩体制の始まり。' },
   { id: 'osakanojin', year: 1615, title: '大坂の陣', pref: '大阪府', lon: 135.53, lat: 34.69, cat: 'war',
     desc: '大坂冬の陣・夏の陣で豊臣氏が滅亡。徳川氏による全国支配が確立した。' },
+  { id: 'kinkyorei', year: 1613, title: '禁教令の全国発布', pref: '東京都', lon: 139.77, lat: 35.68, cat: 'diplomacy',
+    desc: '江戸幕府がキリスト教を全国的に禁止する法令を出した。禁教・貿易統制の強化は、後の「鎖国」体制につながっていく。' },
   { id: 'sankinkotai', year: 1635, title: '参勤交代の制度化', pref: '東京都', lon: 139.77, lat: 35.68, cat: 'politics',
     desc: '三代将軍徳川家光が武家諸法度に加え、大名を1年おきに江戸と領国に往復させる制度を確立。' },
-  { id: 'shimabara', year: 1637, title: '島原・天草一揆', pref: '長崎県', lon: 130.3, lat: 32.78, cat: 'war',
+  { id: 'shimabara', year: 1637, title: '島原・天草一揆', pref: '長崎県', lon: 130.30, lat: 32.78, cat: 'war',
     desc: 'キリシタンや年貢に苦しむ農民らが天草四郎を中心に蜂起。幕府はこれを鎮圧し、禁教・貿易統制を強化した。' },
   { id: 'sakoku', year: 1639, title: '「鎖国」体制の確立', pref: '長崎県', lon: 129.87, lat: 32.75, cat: 'diplomacy',
     desc: 'ポルトガル船の来航を禁止。長崎・対馬・薩摩・松前の「四つの窓口」に交易・交流を限定する体制が固まった。' },
@@ -71,6 +242,8 @@ export const EVENTS = [
     desc: '幕府が外国船を武力で撃退することを命じる法令を発布。列強との緊張が高まった。' },
   { id: 'oshio', year: 1837, title: '大塩平八郎の乱', pref: '大阪府', lon: 135.53, lat: 34.69, cat: 'war',
     desc: '天保の飢饉に苦しむ人々を救おうと元大坂町奉行所与力の大塩平八郎が蜂起。幕府に衝撃を与えた。' },
+  { id: 'bansha_goku', year: 1839, title: '蛮社の獄', pref: '東京都', lon: 139.77, lat: 35.68, cat: 'politics',
+    desc: '渡辺崋山・高野長英ら蘭学者が幕府の対外政策を批判したとして弾圧された事件。言論統制の厳しさを示す。' },
   { id: 'tenpo', year: 1841, title: '天保の改革', pref: '東京都', lon: 139.77, lat: 35.68, cat: 'politics',
     desc: '老中水野忠邦が倹約令・株仲間解散などを行うが、厳しすぎる統制で反発を招き失敗に終わった。' },
   { id: 'kurofune', year: 1853, title: 'ペリー来航(黒船来航)', pref: '神奈川県', lon: 139.67, lat: 35.25, cat: 'diplomacy',
@@ -85,9 +258,11 @@ export const EVENTS = [
     desc: '坂本龍馬らの仲介により、犬猿の仲だった薩摩藩・長州藩が倒幕に向け同盟を結んだ。' },
   { id: 'taisei', year: 1867, title: '大政奉還・王政復古の大号令', pref: '京都府', lon: 135.76, lat: 35.02, cat: 'politics',
     desc: '十五代将軍徳川慶喜が政権を朝廷に返上。江戸幕府が終わり、明治新政府が樹立された。' },
+
+  // ==== 明治時代 ====
   { id: 'boshin', year: 1868, title: '戊辰戦争・江戸城無血開城', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'war',
     desc: '新政府軍と旧幕府軍の内戦が全国に拡大。江戸城は西郷隆盛と勝海舟の交渉により無血開城された。' },
-  { id: 'hakodate', year: 1869, title: '箱館戦争終結', pref: '北海道', lon: 140.75, lat: 41.8, cat: 'war',
+  { id: 'hakodate', year: 1869, title: '箱館戦争終結', pref: '北海道', lon: 140.75, lat: 41.80, cat: 'war',
     desc: '五稜郭に立てこもった旧幕府軍(榎本武揚ら)が降伏し、戊辰戦争が終結した。' },
   { id: 'haihan', year: 1871, title: '廃藩置県', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '藩を廃止し府県を置く改革を断行。中央集権的な近代国家の基盤が整った。' },
@@ -95,7 +270,7 @@ export const EVENTS = [
     desc: '日本初の鉄道が新橋・横浜間に開通。学制公布とあわせ近代化・文明開化を象徴する出来事となった。' },
   { id: 'chiso', year: 1873, title: '地租改正・徴兵令', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '地価の3%を現金で納める地租改正と、満20歳男子に兵役を課す徴兵令により近代国家の財政・軍事基盤が整備された。' },
-  { id: 'seinan', year: 1877, title: '西南戦争', pref: '鹿児島県', lon: 130.56, lat: 31.6, cat: 'war',
+  { id: 'seinan', year: 1877, title: '西南戦争', pref: '鹿児島県', lon: 130.56, lat: 31.60, cat: 'war',
     desc: '西郷隆盛を擁した士族反乱。最大かつ最後の士族反乱であり、以後政治闘争は言論中心に移行した。' },
   { id: 'jiyuminken', year: 1881, title: '自由民権運動・国会開設の詔', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '板垣退助らの自由民権運動の高まりを受け、政府は10年後の国会開設を約束した。' },
@@ -107,7 +282,7 @@ export const EVENTS = [
     desc: '日本の内陸地震として最大級。地震学・耐震研究の発展のきっかけとなった。' },
   { id: 'nisshin', year: 1894, title: '日清戦争・下関条約', pref: '山口県', lon: 130.94, lat: 33.95, cat: 'war',
     desc: '朝鮮をめぐり清と開戦し勝利。下関条約で台湾・遼東半島の割譲や賠償金を得た(のち三国干渉で遼東半島返還)。' },
-  { id: 'ashio', year: 1901, title: '足尾鉱毒事件・田中正造の訴え', pref: '栃木県', lon: 139.6, lat: 36.4, cat: 'disaster',
+  { id: 'ashio', year: 1901, title: '足尾鉱毒事件・田中正造の訴え', pref: '栃木県', lon: 139.60, lat: 36.40, cat: 'disaster',
     desc: '足尾銅山の鉱毒による渡良瀬川流域の被害を、田中正造が天皇へ直訴するなどして訴えた日本初の公害問題。' },
   { id: 'nichiro', year: 1904, title: '日露戦争・日本海海戦', pref: '長崎県', lon: 129.87, lat: 32.75, cat: 'war',
     desc: '満州・朝鮮の権益をめぐりロシアと開戦。日本海海戦の勝利などを経てポーツマス条約が結ばれた。' },
@@ -115,14 +290,18 @@ export const EVENTS = [
     desc: '日本が大韓帝国を併合し植民地とする。以後1945年まで統治が続いた。' },
   { id: 'jokyaku', year: 1911, title: '関税自主権の回復', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'diplomacy',
     desc: '幕末以来の不平等条約が完全に解消され、条約改正が達成された。' },
+
+  // ==== 大正時代 ====
   { id: 'wwi', year: 1914, title: '第一次世界大戦への参戦', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'war',
     desc: '日英同盟を理由にドイツに宣戦布告。大戦景気で経済が急成長する一方、大戦後は反動不況を迎えた。' },
-  { id: 'komesodo', year: 1918, title: '米騒動', pref: '富山県', lon: 137.21, lat: 36.7, cat: 'politics',
+  { id: 'komesodo', year: 1918, title: '米騒動', pref: '富山県', lon: 137.21, lat: 36.70, cat: 'politics',
     desc: '米価高騰に抗議する動きが富山の漁村から全国に拡大。寺内内閣が退陣し、初の本格的政党内閣が成立した。' },
   { id: 'kantoshinsai', year: 1923, title: '関東大震災', pref: '東京都', lon: 139.65, lat: 35.44, cat: 'disaster',
     desc: 'マグニチュード7.9の巨大地震が首都圏を襲い10万人以上が犠牲に。震災後の混乱の中で朝鮮人らへの虐殺も起きた。' },
   { id: 'chianijihou', year: 1925, title: '治安維持法・普通選挙法', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '満25歳以上の男子に選挙権を与える普通選挙法と、共産主義などを取り締まる治安維持法が同時に成立した。' },
+
+  // ==== 昭和時代 ====
   { id: 'showakyoko', year: 1927, title: '昭和金融恐慌', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'economy',
     desc: '銀行の取り付け騒ぎが相次ぎ多くの銀行が休業。財閥系銀行への預金集中が進んだ。' },
   { id: 'manshu', year: 1931, title: '満州事変', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'war',
@@ -135,11 +314,11 @@ export const EVENTS = [
     desc: '盧溝橋事件を機に日中の全面戦争へ拡大。長期化・泥沼化し、太平洋戦争へとつながっていった。' },
   { id: 'taiheiyo', year: 1941, title: '太平洋戦争の開戦', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'war',
     desc: 'ハワイ真珠湾攻撃とマレー半島上陸により米英と開戦。大東亜共栄圏の建設を掲げアジア太平洋へ戦線が拡大した。' },
-  { id: 'tonankai', year: 1944, title: '東南海地震', pref: '三重県', lon: 136.7, lat: 33.9, cat: 'disaster',
+  { id: 'tonankai', year: 1944, title: '東南海地震', pref: '三重県', lon: 136.70, lat: 33.90, cat: 'disaster',
     desc: '戦時下で発生した巨大地震。軍需工場への被害情報は統制され、被害の全容は戦後まで公にならなかった。' },
   { id: 'tokyo_kushu', year: 1945, title: '東京大空襲', pref: '東京都', lon: 139.79, lat: 35.71, cat: 'war',
     desc: '米軍のB29による無差別爆撃で下町地域が焼け野原に。一夜で10万人以上が犠牲になったとされる。' },
-  { id: 'hiroshima', year: 1945, title: '広島への原子爆弾投下', pref: '広島県', lon: 132.45, lat: 34.4, cat: 'war',
+  { id: 'hiroshima', year: 1945, title: '広島への原子爆弾投下', pref: '広島県', lon: 132.45, lat: 34.40, cat: 'war',
     desc: '人類史上初めて実戦で原子爆弾が投下され、一瞬で市街地が壊滅。多くの尊い命が奪われた。' },
   { id: 'nagasaki', year: 1945, title: '長崎への原子爆弾投下', pref: '長崎県', lon: 129.87, lat: 32.75, cat: 'war',
     desc: '広島に続き長崎にも原爆が投下された。この直後、日本はポツダム宣言を受諾し戦争が終結した。' },
@@ -155,9 +334,9 @@ export const EVENTS = [
     desc: '独立を回復する一方、同日調印の日米安保条約により米軍基地が国内に残ることとなった。' },
   { id: 'kokuren', year: 1956, title: '国際連合への加盟', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'diplomacy',
     desc: '日ソ共同宣言によりソ連との国交が回復し、これを受けて国際連合への加盟が実現した。' },
-  { id: 'minamata', year: 1956, title: '水俣病の公式確認', pref: '熊本県', lon: 130.7, lat: 32.8, cat: 'disaster',
+  { id: 'minamata', year: 1956, title: '水俣病の公式確認', pref: '熊本県', lon: 130.70, lat: 32.80, cat: 'disaster',
     desc: '工場排水中のメチル水銀による中毒症が確認される。四大公害病の一つとして戦後の公害問題を象徴する。' },
-  { id: 'iseewan', year: 1959, title: '伊勢湾台風', pref: '愛知県', lon: 136.9, lat: 35.18, cat: 'disaster',
+  { id: 'iseewan', year: 1959, title: '伊勢湾台風', pref: '愛知県', lon: 136.90, lat: 35.18, cat: 'disaster',
     desc: '戦後最大級の被害をもたらした台風。死者・行方不明者5000人を超え、災害対策基本法制定の契機となった。' },
   { id: 'anpo', year: 1960, title: '日米安全保障条約改定・安保闘争', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '条約改定に反対する大規模なデモが国会を取り巻いた。岸信介内閣は条約成立直後に退陣した。' },
@@ -167,7 +346,7 @@ export const EVENTS = [
     desc: '戦後アメリカの施政下にあった小笠原諸島が日本に返還された。' },
   { id: 'expo70', year: 1970, title: '大阪万博(日本万国博覧会)', pref: '大阪府', lon: 135.53, lat: 34.69, cat: 'culture',
     desc: '「人類の進歩と調和」をテーマにアジア初の万博が開催され、6400万人以上が来場した。' },
-  { id: 'okinawahenkan', year: 1972, title: '沖縄返還・日中国交正常化', pref: '沖縄県', lon: 127.68, lat: 26.2, cat: 'diplomacy',
+  { id: 'okinawahenkan', year: 1972, title: '沖縄返還・日中国交正常化', pref: '沖縄県', lon: 127.68, lat: 26.20, cat: 'diplomacy',
     desc: 'アメリカ統治下にあった沖縄が日本に復帰。同年、日中共同声明により中国との国交も正常化した。' },
   { id: 'oilshock', year: 1973, title: '第一次石油危機(オイルショック)', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'economy',
     desc: '第四次中東戦争を機に原油価格が高騰。高度経済成長が終わり、狂乱物価と呼ばれる混乱が起きた。' },
@@ -177,6 +356,8 @@ export const EVENTS = [
     desc: '先進国が協調してドル高是正に合意。急速な円高が進み、以後のバブル経済の一因となった。' },
   { id: 'nikkojiko', year: 1985, title: '日航機墜落事故', pref: '群馬県', lon: 138.68, lat: 36.08, cat: 'disaster',
     desc: '御巣鷹の尾根に日本航空機が墜落し520人が死亡。単独機の航空事故として世界最悪級の惨事となった。' },
+
+  // ==== 平成時代 ====
   { id: 'heisei', year: 1989, title: '昭和天皇崩御・「平成」に改元', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '昭和の終わりとともに元号が「平成」に改まった。同年、消費税(3%)も初めて導入された。' },
   { id: 'bubblehokai', year: 1991, title: 'バブル経済崩壊', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'economy',
@@ -201,12 +382,16 @@ export const EVENTS = [
     desc: 'マグニチュード9.0の巨大地震と大津波により東北の太平洋沿岸が壊滅的被害を受け、原発事故も発生した。' },
   { id: 'kumamoto', year: 2016, title: '熊本地震', pref: '熊本県', lon: 130.73, lat: 32.79, cat: 'disaster',
     desc: '震度7の地震が2回連続で発生する異例の地震。熊本城など多くの文化財も被害を受けた。' },
+
+  // ==== 令和時代 ====
   { id: 'reiwa', year: 2019, title: '「令和」に改元', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'politics',
     desc: '天皇の生前退位により、元号が「平成」から「令和」に改まった。' },
   { id: 'corona', year: 2020, title: '新型コロナウイルス感染拡大・東京五輪延期', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'disaster',
     desc: '世界的な感染症拡大により東京オリンピック・パラリンピックの開催が史上初めて延期された。' },
   { id: 'tokyo2020', year: 2021, title: '東京オリンピック・パラリンピック開催', pref: '東京都', lon: 139.75, lat: 35.68, cat: 'culture',
     desc: '1年延期の末、多くの競技が無観客で開催された史上異例の大会となった。' },
-  { id: 'noto', year: 2024, title: '令和6年能登半島地震', pref: '石川県', lon: 137.0, lat: 37.15, cat: 'disaster',
+  { id: 'noto', year: 2024, title: '令和6年能登半島地震', pref: '石川県', lon: 137.00, lat: 37.15, cat: 'disaster',
     desc: '元日に発生した最大震度7の地震。能登半島の広い範囲で建物倒壊や津波の被害が生じた。' },
+  { id: 'osaka_kansai_expo2025', year: 2025, title: '大阪・関西万博(2025年日本国際博覧会)の開催', pref: '大阪府', lon: 135.43, lat: 34.65, cat: 'culture',
+    desc: '「いのち輝く未来社会のデザイン」をテーマに、大阪・夢洲を会場として国際博覧会が開催された。' },
 ];

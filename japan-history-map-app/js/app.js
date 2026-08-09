@@ -1,9 +1,9 @@
-import { EVENTS, CATEGORY_META, ERAS } from './data.js';
+import { EVENTS, CATEGORY_META, ERAS, formatYear, MIN_YEAR } from './data.js';
 import { buildBaseMap, renderPins } from './map.js';
 import { initQuiz } from './quiz.js';
 
 const state = {
-  yearFrom: 1600,
+  yearFrom: MIN_YEAR,
   yearTo: new Date().getFullYear(),
   cats: new Set(Object.keys(CATEGORY_META)),
   selectedId: null,
@@ -21,6 +21,9 @@ const eventListEl = document.getElementById('eventList');
 const listCountEl = document.getElementById('listCount');
 const detailPanel = document.getElementById('detailPanel');
 
+yearFromInput.min = String(MIN_YEAR);
+yearToInput.min = String(MIN_YEAR);
+yearFromInput.value = String(state.yearFrom);
 yearToInput.value = String(state.yearTo);
 yearFromInput.max = String(state.yearTo);
 yearToInput.max = String(state.yearTo);
@@ -45,7 +48,7 @@ const allBtn = document.createElement('button');
 allBtn.className = 'era-btn era-btn-all';
 allBtn.textContent = 'すべて';
 allBtn.addEventListener('click', () => {
-  state.yearFrom = 1600;
+  state.yearFrom = MIN_YEAR;
   state.yearTo = new Date().getFullYear();
   yearFromInput.value = String(state.yearFrom);
   yearToInput.value = String(state.yearTo);
@@ -106,7 +109,7 @@ function renderDetail(ev) {
   detailPanel.innerHTML = `
     <span class="detail-cat" style="--cat-color:${meta.color}">${meta.label}</span>
     <h3>${ev.title}</h3>
-    <p class="detail-meta">${ev.year}年 ・ ${ev.pref}</p>
+    <p class="detail-meta">${formatYear(ev.year)} ・ ${ev.pref}</p>
     <p class="detail-desc">${ev.desc}</p>
   `;
 }
@@ -121,7 +124,7 @@ function renderList() {
     const meta = CATEGORY_META[ev.cat];
     li.innerHTML = `
       <span class="dot" style="background:${meta.color}"></span>
-      <span class="event-year">${ev.year}</span>
+      <span class="event-year">${formatYear(ev.year)}</span>
       <span class="event-title">${ev.title}</span>
       <span class="event-pref">${ev.pref}</span>
     `;
@@ -131,7 +134,7 @@ function renderList() {
 }
 
 function update() {
-  yearLabel.textContent = `${state.yearFrom}年 〜 ${state.yearTo}年`;
+  yearLabel.textContent = `${formatYear(state.yearFrom)} 〜 ${formatYear(state.yearTo)}`;
   const events = filteredEvents();
   if (state.selectedId && !events.some(e => e.id === state.selectedId)) {
     state.selectedId = null;
