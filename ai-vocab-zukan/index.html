@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI用語ずかん</title>
+<meta name="description" content="AI用語を図鑑のように集めて楽しく覚える単語帳アプリ">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1><span class="app-logo">📖</span> AI用語ずかん</h1>
+      <p class="app-tagline">AI用語を"集めて"楽しく覚えよう</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn is-active" data-tab="zukan" role="tab" aria-selected="true">📖 図鑑</button>
+    <button class="tab-btn" data-tab="quiz" role="tab" aria-selected="false">✏️ クイズ</button>
+  </nav>
+
+  <main>
+    <!-- ===================== 図鑑タブ ===================== -->
+    <section id="tab-zukan" class="tab-panel is-active">
+
+      <div class="guide-banner">
+        <div class="guide-step">
+          <span class="guide-num">①</span>
+          <span class="guide-text">カードを<b>見る</b></span>
+        </div>
+        <span class="guide-arrow">→</span>
+        <div class="guide-step">
+          <span class="guide-num">②</span>
+          <span class="guide-text">タップして<b>めくる</b></span>
+        </div>
+        <span class="guide-arrow">→</span>
+        <div class="guide-step">
+          <span class="guide-num">③</span>
+          <span class="guide-text">覚えたら<b>収集</b>！</span>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-label">
+          <span>コレクション進捗</span>
+          <span id="progress-count">0 / 0</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="chip-row" id="category-chips"></div>
+
+      <div class="legend-row">
+        <span><span class="legend-dot is-collected"></span>収集済み</span>
+        <span><span class="legend-dot"></span>未収集</span>
+      </div>
+
+      <div class="card-grid" id="card-grid"></div>
+    </section>
+
+    <!-- ===================== クイズタブ ===================== -->
+    <section id="tab-quiz" class="tab-panel">
+      <div class="quiz-stats">
+        <div class="quiz-stat">
+          <span class="quiz-stat-label">現在の連続正解</span>
+          <span class="quiz-stat-value" id="quiz-streak">0</span>
+        </div>
+        <div class="quiz-stat">
+          <span class="quiz-stat-label">ベスト記録</span>
+          <span class="quiz-stat-value" id="quiz-best">0</span>
+        </div>
+        <div class="quiz-stat">
+          <span class="quiz-stat-label">出題数</span>
+          <span class="quiz-stat-value" id="quiz-total">0</span>
+        </div>
+      </div>
+
+      <div class="quiz-card" id="quiz-card">
+        <p class="quiz-hint">この用語の意味は？</p>
+        <h2 class="quiz-term" id="quiz-term">―</h2>
+        <p class="quiz-reading" id="quiz-reading"></p>
+        <div class="quiz-choices" id="quiz-choices"></div>
+        <div class="quiz-feedback" id="quiz-feedback"></div>
+        <button class="btn btn-primary" id="quiz-next" style="display:none;">次の問題へ →</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- カード詳細（表→裏にめくれるフリップカード） -->
+  <div class="detail-overlay" id="detail-overlay">
+    <div class="detail-scrim" id="detail-scrim"></div>
+    <div class="flip-card detail-flip-card" id="detail-card">
+      <div class="flip-card-inner" id="detail-card-inner">
+        <div class="flip-face flip-face-front">
+          <button class="card-close" id="detail-close" aria-label="閉じる">×</button>
+          <span class="card-cat-badge" id="detail-cat-badge"></span>
+          <h3 class="card-term" id="detail-term"></h3>
+          <p class="card-reading" id="detail-reading"></p>
+          <p class="card-summary" id="detail-summary"></p>
+          <p class="card-hint">タップすると たとえ話・使用例 が見られます</p>
+        </div>
+        <div class="flip-face flip-face-back">
+          <button class="card-close" id="detail-close-back" aria-label="閉じる">×</button>
+          <div class="card-back-block">
+            <p class="card-back-label">🌱 たとえるなら…</p>
+            <p class="card-back-text" id="detail-analogy"></p>
+          </div>
+          <div class="card-back-block">
+            <p class="card-back-label">💡 使用例</p>
+            <p class="card-back-text" id="detail-example"></p>
+          </div>
+          <button class="btn btn-collect" id="detail-collect">収集する ✓</button>
+          <p class="card-hint">タップで表に戻る</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>進捗はこのブラウザに自動で保存されます。全 <span id="footer-total">0</span> 語収録。</p>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
