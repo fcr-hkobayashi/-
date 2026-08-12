@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#2b3a67" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>AI秘書メモ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <h1>AI秘書メモ</h1>
+  <p class="app-header__sub">運転中の音声メモを、帰宅後に自動で整理</p>
+</header>
+
+<main>
+  <!-- ============ 録音タブ ============ -->
+  <section id="tab-record" class="tab-panel is-active" aria-labelledby="nav-record">
+    <p class="safety-note">⚠️ 運転中の画面操作はしないでください。出発前に「話し始める」を押すと、あとは話すだけで自動保存されます。</p>
+
+    <div class="mic-stage">
+      <button id="mic-toggle" class="mic-button" aria-pressed="false">
+        <span class="mic-button__icon" aria-hidden="true">🎙️</span>
+        <span class="mic-button__label">話し始める</span>
+      </button>
+      <p id="mic-status" class="mic-status">停止中</p>
+    </div>
+
+    <div class="live-transcript" aria-live="polite">
+      <p id="live-text" class="live-text">ここに認識中の文字が表示されます</p>
+    </div>
+
+    <div class="last-entry" id="last-entry" hidden>
+      <span class="chip" id="last-entry-category">仕事</span>
+      <p id="last-entry-text"></p>
+    </div>
+
+    <details class="manual-input">
+      <summary>音声が使えないときは、手入力で追加</summary>
+      <form id="manual-form">
+        <textarea id="manual-text" rows="3" placeholder="今考えたことを書く…"></textarea>
+        <button type="submit" class="btn btn-secondary">この内容を保存</button>
+      </form>
+    </details>
+
+    <p id="speech-unsupported" class="warning-note" hidden>
+      このブラウザは音声入力に対応していません。Android の Chrome か、最新の Safari をお使いください。手入力は引き続き使えます。
+    </p>
+  </section>
+
+  <!-- ============ 確認タブ ============ -->
+  <section id="tab-review" class="tab-panel" aria-labelledby="nav-review">
+    <div class="date-nav">
+      <button id="date-prev" class="btn-icon" aria-label="前の日">←</button>
+      <input type="date" id="date-picker" />
+      <button id="date-next" class="btn-icon" aria-label="次の日">→</button>
+    </div>
+
+    <div class="review-actions">
+      <button id="summary-copy" class="btn btn-primary">📋 今日のまとめをコピー</button>
+      <button id="summary-claude" class="btn btn-secondary" hidden>✨ Claudeで要約する</button>
+    </div>
+
+    <div id="summary-preview" class="summary-preview" hidden></div>
+
+    <div id="review-groups" class="review-groups"></div>
+
+    <p id="review-empty" class="empty-note" hidden>この日のメモはまだありません。</p>
+  </section>
+
+  <!-- ============ 設定タブ ============ -->
+  <section id="tab-settings" class="tab-panel" aria-labelledby="nav-settings">
+    <h2>設定</h2>
+
+    <div class="settings-group">
+      <label class="settings-label">
+        <input type="checkbox" id="voice-feedback-toggle" checked />
+        保存時に音声で「メモしました」と返す
+      </label>
+      <label class="settings-label">
+        <input type="checkbox" id="vibrate-toggle" checked />
+        保存時にバイブで知らせる（対応端末のみ）
+      </label>
+    </div>
+
+    <div class="settings-group">
+      <h3>Claude API（任意）</h3>
+      <p class="settings-note">
+        なくても分類・保存は動きます。キーを設定すると、「確認」タブの要約をClaudeが自然な文章で書き直してくれます。
+        キーはこの端末のブラウザ内だけに保存され、要約時にAnthropicへ直接送信される以外どこにも送られません。
+        キーは <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> で発行できます。
+      </p>
+      <input type="password" id="claude-key-input" placeholder="sk-ant-..." autocomplete="off" />
+      <div class="settings-row">
+        <button id="claude-key-save" class="btn btn-secondary">保存</button>
+        <button id="claude-key-clear" class="btn btn-text">キーを削除</button>
+      </div>
+      <p id="claude-key-status" class="settings-note"></p>
+    </div>
+
+    <div class="settings-group">
+      <h3>データ</h3>
+      <p class="settings-note">メモはすべてこの端末のブラウザ内（localStorage）だけに保存されます。他の端末とは同期しません。</p>
+      <button id="clear-all-data" class="btn btn-danger">すべてのメモを削除</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tab-bar">
+  <button id="nav-record" class="tab-bar__item is-active" data-tab="tab-record">
+    <span aria-hidden="true">🎙️</span><span>録音</span>
+  </button>
+  <button id="nav-review" class="tab-bar__item" data-tab="tab-review">
+    <span aria-hidden="true">🗂️</span><span>確認</span>
+  </button>
+  <button id="nav-settings" class="tab-bar__item" data-tab="tab-settings">
+    <span aria-hidden="true">⚙️</span><span>設定</span>
+  </button>
+</nav>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="js/classifier.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/claude.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
