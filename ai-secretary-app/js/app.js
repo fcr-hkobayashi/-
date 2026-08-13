@@ -30,6 +30,8 @@
     }, 2400);
   }
 
+  window.Sync.setSyncErrorHandler(showToast);
+
   // ---------- 保存時のフィードバック（音声・バイブ） ----------
   function feedbackOnSave(categoryLabel) {
     const prefs = Storage.loadPrefs();

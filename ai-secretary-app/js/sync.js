@@ -5,6 +5,7 @@
  */
 (function () {
   const SECRET_KEY = 'aisecretary:sync-secret';
+  let onSyncError = null;
 
   function getSyncSecret() {
     return localStorage.getItem(SECRET_KEY) || '';
@@ -15,23 +16,47 @@
     else localStorage.removeItem(SECRET_KEY);
   }
 
+  function setSyncErrorHandler(fn) {
+    onSyncError = fn;
+  }
+
+  function reportError(message) {
+    console.error('[Sync]', message);
+    if (onSyncError) onSyncError(message);
+  }
+
   function syncEntry(entry) {
     const secret = getSyncSecret();
-    const headers = { 'content-type': 'application/json' };
-    if (secret) headers['x-sync-secret'] = secret;
+    if (!secret) return; // 同期を設定していない場合は何もしない(今まで通りローカルのみ)
 
     fetch('/api/entries', {
       method: 'POST',
-      headers,
+      headers: { 'content-type': 'application/json', 'x-sync-secret': secret },
       body: JSON.stringify({
         text: entry.text,
         category: entry.category,
         createdAt: entry.createdAt,
       }),
-    }).catch(() => {
-      /* オフライン等での失敗は無視する */
-    });
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.text().then((body) => {
+            let detail = body;
+            try {
+              detail = JSON.parse(body).error || body;
+            } catch (e) {
+              /* JSONでなければそのまま使う */
+            }
+            reportError(`⚠️ サーバー同期に失敗 (${res.status}): ${String(detail).slice(0, 80)}`);
+            console.error('[Sync] response body:', body);
+          });
+        }
+      })
+      .catch((e) => {
+        reportError('⚠️ サーバー同期に失敗しました(通信エラー)');
+        console.error('[Sync] fetch error:', e);
+      });
   }
 
-  window.Sync = { getSyncSecret, setSyncSecret, syncEntry };
+  window.Sync = { getSyncSecret, setSyncSecret, setSyncErrorHandler, syncEntry };
 })();
