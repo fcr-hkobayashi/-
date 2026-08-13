@@ -103,8 +103,23 @@
     </div>
 
     <div class="settings-group">
+      <h3>夜8時のLINE自動レポート（任意）</h3>
+      <p class="settings-note">
+        設定すると、メモを保存するたびにサーバーへも同時に送られるようになり、毎晩20時に自動でその日のまとめがLINEに届きます。
+        ここで入力するシークレットは、Vercelの環境変数 <code>SYNC_SECRET</code> と同じ値にしてください（サーバー側の設定はREADME参照）。
+        未入力のままでも録音・確認機能はこれまで通り使えます。
+      </p>
+      <input type="password" id="sync-secret-input" placeholder="サーバーと同じシークレット文字列" autocomplete="off" />
+      <div class="settings-row">
+        <button id="sync-secret-save" class="btn btn-secondary">保存</button>
+        <button id="sync-secret-clear" class="btn btn-text">解除</button>
+      </div>
+      <p id="sync-secret-status" class="settings-note"></p>
+    </div>
+
+    <div class="settings-group">
       <h3>データ</h3>
-      <p class="settings-note">メモはすべてこの端末のブラウザ内（localStorage）だけに保存されます。他の端末とは同期しません。</p>
+      <p class="settings-note">メモはこの端末のブラウザ内（localStorage）に保存されます。上のLINEレポート設定をしている場合のみ、要約用にサーバーへも同時保存されます。</p>
       <button id="clear-all-data" class="btn btn-danger">すべてのメモを削除</button>
     </div>
   </section>
@@ -127,6 +142,7 @@
 <script src="js/classifier.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/claude.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
