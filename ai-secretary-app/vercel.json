@@ -1,4 +1,7 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "crons": [
+    { "path": "/api/cron/daily-report", "schedule": "0 11 * * *" }
+  ]
 }

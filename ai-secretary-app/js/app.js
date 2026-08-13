@@ -59,6 +59,7 @@
     lastEntryEl.hidden = false;
 
     feedbackOnSave(label);
+    window.Sync.syncEntry(entry);
     return entry;
   }
 
@@ -359,6 +360,29 @@
     Storage.setClaudeKey('');
     refreshClaudeKeyStatus();
     showToast('キーを削除しました');
+  });
+
+  const syncSecretInput = document.getElementById('sync-secret-input');
+  const syncSecretStatus = document.getElementById('sync-secret-status');
+
+  function refreshSyncSecretStatus() {
+    syncSecretStatus.textContent = window.Sync.getSyncSecret()
+      ? '✅ 設定済み（保存のたびにサーバーへ同期されます）'
+      : '未設定です（サーバー同期・LINEレポートは動きません）';
+  }
+  refreshSyncSecretStatus();
+
+  document.getElementById('sync-secret-save').addEventListener('click', () => {
+    window.Sync.setSyncSecret(syncSecretInput.value.trim());
+    syncSecretInput.value = '';
+    refreshSyncSecretStatus();
+    showToast('保存しました');
+  });
+
+  document.getElementById('sync-secret-clear').addEventListener('click', () => {
+    window.Sync.setSyncSecret('');
+    refreshSyncSecretStatus();
+    showToast('解除しました');
   });
 
   document.getElementById('clear-all-data').addEventListener('click', () => {
