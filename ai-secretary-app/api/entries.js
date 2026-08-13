@@ -15,30 +15,32 @@ function checkAuth(req) {
 }
 
 module.exports = async function handler(req, res) {
-  if (!checkAuth(req)) {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
-  }
-
-  if (req.method === 'POST') {
-    let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch (e) {
-        body = {};
-      }
-    }
-    const { text, category, createdAt } = body || {};
-    if (!text || !createdAt) {
-      res.status(400).json({ error: 'text and createdAt are required' });
+  // ハンドラ全体を1つのtry/catchで囲み、想定外の例外でもVercelの汎用500ではなく
+  // 実際のエラーメッセージをJSONで返す(デバッグしやすくするため)。
+  try {
+    if (!checkAuth(req)) {
+      res.status(401).json({ error: 'unauthorized' });
       return;
     }
 
-    const date = jstDateKey(new Date(createdAt));
-    const key = `entries:${date}`;
+    if (req.method === 'POST') {
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch (e) {
+          body = {};
+        }
+      }
+      const { text, category, createdAt } = body || {};
+      if (!text || !createdAt) {
+        res.status(400).json({ error: 'text and createdAt are required', receivedBody: body });
+        return;
+      }
 
-    try {
+      const date = jstDateKey(new Date(createdAt));
+      const key = `entries:${date}`;
+
       const raw = await kvGet(key);
       const list = raw ? JSON.parse(raw) : [];
       const entry = {
@@ -50,24 +52,21 @@ module.exports = async function handler(req, res) {
       list.push(entry);
       await kvSet(key, JSON.stringify(list));
       res.status(200).json({ ok: true, entry });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
+      return;
     }
-    return;
-  }
 
-  if (req.method === 'GET') {
-    const date = (req.query && req.query.date) || jstDateKey(new Date());
-    const key = `entries:${date}`;
-    try {
+    if (req.method === 'GET') {
+      const date = (req.query && req.query.date) || jstDateKey(new Date());
+      const key = `entries:${date}`;
       const raw = await kvGet(key);
       const list = raw ? JSON.parse(raw) : [];
       res.status(200).json({ date, entries: list });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
+      return;
     }
-    return;
-  }
 
-  res.status(405).json({ error: 'method not allowed' });
+    res.status(405).json({ error: 'method not allowed' });
+  } catch (e) {
+    console.error('[api/entries] unhandled error:', e);
+    res.status(500).json({ error: e.message, name: e.name });
+  }
 };

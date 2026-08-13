@@ -41,7 +41,13 @@
       .then((res) => {
         if (!res.ok) {
           return res.text().then((body) => {
-            reportError(`⚠️ サーバー同期に失敗しました (${res.status})`);
+            let detail = body;
+            try {
+              detail = JSON.parse(body).error || body;
+            } catch (e) {
+              /* JSONでなければそのまま使う */
+            }
+            reportError(`⚠️ サーバー同期に失敗 (${res.status}): ${String(detail).slice(0, 80)}`);
             console.error('[Sync] response body:', body);
           });
         }
