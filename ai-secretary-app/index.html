@@ -103,23 +103,25 @@
     </div>
 
     <div class="settings-group">
-      <h3>夜8時のLINE自動レポート（任意）</h3>
+      <h3>夜8時のLINE自動レポート</h3>
       <p class="settings-note">
-        設定すると、メモを保存するたびにサーバーへも同時に送られるようになり、毎晩20時に自動でその日のまとめがLINEに届きます。
-        ここで入力するシークレットは、Vercelの環境変数 <code>SYNC_SECRET</code> と同じ値にしてください（サーバー側の設定はREADME参照）。
-        未入力のままでも録音・確認機能はこれまで通り使えます。
+        メモを保存するたびに、サーバーにも自動で同時保存され、毎晩20時にその日のまとめがLINEに届きます（Vercel側で設定済みの場合）。
+        以前はここでシークレットの手入力が必要でしたが、現在はアプリに組み込み済みのため入力不要です。
       </p>
-      <input type="password" id="sync-secret-input" placeholder="サーバーと同じシークレット文字列" autocomplete="off" />
-      <div class="settings-row">
-        <button id="sync-secret-save" class="btn btn-secondary">保存</button>
-        <button id="sync-secret-clear" class="btn btn-text">解除</button>
-      </div>
       <p id="sync-secret-status" class="settings-note"></p>
+      <details>
+        <summary>上級者向け: 同期用シークレットを個別に変更する</summary>
+        <input type="password" id="sync-secret-input" placeholder="サーバーと同じシークレット文字列" autocomplete="off" />
+        <div class="settings-row">
+          <button id="sync-secret-save" class="btn btn-secondary">保存</button>
+          <button id="sync-secret-clear" class="btn btn-text">組み込み値に戻す</button>
+        </div>
+      </details>
     </div>
 
     <div class="settings-group">
       <h3>データ</h3>
-      <p class="settings-note">メモはこの端末のブラウザ内（localStorage）に保存されます。上のLINEレポート設定をしている場合のみ、要約用にサーバーへも同時保存されます。</p>
+      <p class="settings-note">メモはこの端末のブラウザ内（localStorage）に保存されます。あわせてサーバーにも自動で同時保存されます。</p>
       <button id="clear-all-data" class="btn btn-danger">すべてのメモを削除</button>
     </div>
   </section>
