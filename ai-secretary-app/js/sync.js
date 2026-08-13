@@ -2,13 +2,24 @@
  * メモ保存時にサーバー(/api/entries)へバックグラウンド同期する。
  * 失敗してもこの端末のlocalStorageには残っているので致命的ではないが、
  * 夜のLINEレポートにはその1件が反映されない可能性がある。
+ *
+ * 同期用の合言葉はここに固定値として埋め込む(Vercel側のSYNC_SECRET環境変数と
+ * 同じ値にすること)。以前はブラウザのlocalStorageに手入力させていたが、
+ * デプロイURLが変わるたびに別オリジン扱いになって入力し直しが必要になり
+ * 運用上の混乱の元だったため、コードに焼き込む方式に変更した。
+ * 個人用ホビーアプリなので、この程度の簡易的な保護で十分という判断。
  */
 (function () {
+  const HARDCODED_SECRET = '466c50e83cc9ad26f55944a6534859';
   const SECRET_KEY = 'aisecretary:sync-secret';
   let onSyncError = null;
 
   function getSyncSecret() {
-    return localStorage.getItem(SECRET_KEY) || '';
+    return localStorage.getItem(SECRET_KEY) || HARDCODED_SECRET;
+  }
+
+  function hasCustomOverride() {
+    return !!localStorage.getItem(SECRET_KEY);
   }
 
   function setSyncSecret(value) {
@@ -58,5 +69,5 @@
       });
   }
 
-  window.Sync = { getSyncSecret, setSyncSecret, setSyncErrorHandler, syncEntry };
+  window.Sync = { getSyncSecret, setSyncSecret, hasCustomOverride, setSyncErrorHandler, syncEntry };
 })();

@@ -368,9 +368,9 @@
   const syncSecretStatus = document.getElementById('sync-secret-status');
 
   function refreshSyncSecretStatus() {
-    syncSecretStatus.textContent = window.Sync.getSyncSecret()
-      ? '✅ 設定済み（保存のたびにサーバーへ同期されます）'
-      : '未設定です（サーバー同期・LINEレポートは動きません）';
+    syncSecretStatus.textContent = window.Sync.hasCustomOverride()
+      ? '✅ 個別のシークレットが設定されています(保存のたびにサーバーへ同期されます)'
+      : '✅ 組み込みの設定でサーバーへ自動同期されます';
   }
   refreshSyncSecretStatus();
 
