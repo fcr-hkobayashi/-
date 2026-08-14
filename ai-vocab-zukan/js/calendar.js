@@ -303,17 +303,24 @@
     if (refreshBtn) refreshBtn.disabled = true;
 
     try {
-      if (!ensureTokenClient()) throw new Error('gsi-not-ready');
-      const accessToken = await requestToken({ interactive });
+      if (!ensureTokenClient()) throw new Error('Googleログインの準備ができていません(スクリプト未読み込み)');
+      let accessToken;
+      try {
+        accessToken = await requestToken({ interactive });
+      } catch (tokenErr) {
+        const reason = (tokenErr && (tokenErr.error || tokenErr.message)) || '不明なエラー';
+        throw new Error(`ログインに失敗: ${reason}`);
+      }
       const items = await fetchUpcomingEvents(accessToken);
       renderUpcoming(items);
       if (noteEl) noteEl.textContent = `最終確認: たった今`;
     } catch (e) {
+      console.error('[AI用語ずかん] カレンダー取得エラー:', e);
       if (!interactive) {
         // サイレント取得の失敗は無言で諦める（毎回ログイン要求すると煩わしいため）
         if (noteEl) noteEl.textContent = '「最新の予定を確認」を押すと表示されます。';
       } else {
-        if (noteEl) noteEl.textContent = '取得に失敗しました。もう一度お試しください。';
+        if (noteEl) noteEl.textContent = `取得に失敗しました: ${e.message || e}`;
       }
     } finally {
       if (refreshBtn) refreshBtn.disabled = false;
@@ -331,7 +338,14 @@
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) throw new Error('fetch-failed');
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson && errJson.error && errJson.error.message) detail += ` ${errJson.error.message}`;
+      } catch (e) { /* ignore */ }
+      throw new Error(detail);
+    }
     const json = await res.json();
     return json.items || [];
   }
