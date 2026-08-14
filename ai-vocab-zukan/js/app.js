@@ -187,6 +187,27 @@
   const detailAnalogy = document.getElementById('detail-analogy');
   const detailExample = document.getElementById('detail-example');
   const detailCollectBtn = document.getElementById('detail-collect');
+  const detailSpeakBtn = document.getElementById('detail-speak-btn');
+
+  // ---------------- 音声読み上げ ----------------
+  const canSpeak = 'speechSynthesis' in window;
+  function speakText(text) {
+    if (!canSpeak || !text) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ja-JP';
+    utter.rate = 0.95;
+    utter.onstart = () => detailSpeakBtn.classList.add('is-speaking');
+    utter.onend = () => detailSpeakBtn.classList.remove('is-speaking');
+    utter.onerror = () => detailSpeakBtn.classList.remove('is-speaking');
+    window.speechSynthesis.speak(utter);
+  }
+  if (canSpeak) {
+    detailSpeakBtn.addEventListener('click', () => {
+      const term = TERMS.find(t => t.id === currentDetailTermId);
+      if (term) speakText(term.reading || term.term);
+    });
+  }
 
   function openDetail(termId) {
     const term = TERMS.find(t => t.id === termId);
@@ -199,6 +220,7 @@
     detailCatBadge.style.color = cat.color;
     detailTerm.textContent = term.term;
     detailReading.textContent = term.reading ? `読み方: ${term.reading}` : '';
+    detailSpeakBtn.style.display = canSpeak ? 'flex' : 'none';
     detailSummary.textContent = term.summary;
     detailAnalogy.textContent = term.analogy;
     detailExample.textContent = term.example;
@@ -219,9 +241,9 @@
     currentDetailTermId = null;
   }
 
-  // tap front area (not the close button) to flip to back
+  // tap front area (not the close/speak buttons) to flip to back
   document.querySelector('.flip-face-front').addEventListener('click', (e) => {
-    if (e.target.closest('.card-close')) return;
+    if (e.target.closest('.card-close') || e.target.closest('.speak-btn')) return;
     detailCardInner.classList.add('is-flipped');
   });
   // tap back area (not close/collect buttons) to flip back to front
