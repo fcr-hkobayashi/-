@@ -3,6 +3,8 @@
 
   const STORAGE_COLLECTED = 'aivocab_collected_v1';
   const STORAGE_BEST_STREAK = 'aivocab_best_streak_v1';
+  const STORAGE_LAST_VISIT = 'aivocab_last_visit_v1';
+  const STORAGE_DAY_STREAK = 'aivocab_day_streak_v1';
 
   const catById = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
   let activeCategory = 'all';
@@ -27,6 +29,44 @@
   }
   function saveBestStreak(v) {
     localStorage.setItem(STORAGE_BEST_STREAK, String(v));
+  }
+
+  // ---------------- daily streak ----------------
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function updateDayStreak() {
+    const today = todayKey();
+    const lastVisit = localStorage.getItem(STORAGE_LAST_VISIT);
+    let streak = Number(localStorage.getItem(STORAGE_DAY_STREAK) || 0);
+
+    if (lastVisit === today) {
+      // 今日はすでにカウント済み
+    } else if (lastVisit) {
+      const diffDays = Math.round((new Date(today) - new Date(lastVisit)) / 86400000);
+      streak = diffDays === 1 ? streak + 1 : 1;
+    } else {
+      streak = 1;
+    }
+
+    localStorage.setItem(STORAGE_LAST_VISIT, today);
+    localStorage.setItem(STORAGE_DAY_STREAK, String(streak));
+    return streak;
+  }
+
+  function renderStreakBanner() {
+    const streak = updateDayStreak();
+    const banner = document.getElementById('streak-banner');
+    if (!banner) return;
+    if (streak >= 2) {
+      banner.classList.add('has-streak');
+      banner.innerHTML = `<span class="streak-flame">🔥</span> <strong>${streak}日連続</strong>で学習中！この調子で続けよう`;
+    } else {
+      banner.classList.remove('has-streak');
+      banner.textContent = '📖 今日も1語、学んでいこう！';
+    }
   }
 
   // ---------------- tabs ----------------
@@ -301,6 +341,7 @@
   quizNextBtn.addEventListener('click', nextQuizQuestion);
 
   // ---------------- init ----------------
+  renderStreakBanner();
   renderChips();
   renderGrid();
   updateQuizStats();

@@ -86,6 +86,27 @@ main {
 .tab-panel { display: none; }
 .tab-panel.is-active { display: block; }
 
+/* ---------- Streak banner ---------- */
+.streak-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  margin-top: 16px;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.streak-banner.has-streak {
+  background: linear-gradient(135deg, #fff6e6, var(--surface));
+  border-color: #f0d9a8;
+  color: var(--ink);
+}
+.streak-banner .streak-flame { font-size: 1.05rem; }
+.streak-banner strong { color: var(--gold); font-weight: 800; }
+
 /* ---------- Guide banner ---------- */
 .guide-banner {
   display: flex;
