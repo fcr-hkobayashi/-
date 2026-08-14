@@ -18,6 +18,11 @@
   const dayChecksWrap = document.getElementById('calendar-day-checks');
   const submitBtn = document.getElementById('calendar-submit-btn');
   const statusEl = document.getElementById('calendar-modal-status');
+  const formView = document.getElementById('calendar-form-view');
+  const resultView = document.getElementById('calendar-result-view');
+  const resultSummary = document.getElementById('calendar-result-summary');
+  const resultList = document.getElementById('calendar-result-list');
+  const resultCloseBtn = document.getElementById('calendar-result-close');
 
   let selectedDays = new Set([0, 1, 2, 3, 4, 5, 6]);
 
@@ -111,12 +116,17 @@
     return sessions;
   }
 
+  const WEEKDAY_LABEL = ['日', '月', '火', '水', '木', '金', '土'];
+  function formatResultDate(date) {
+    return `${date.getMonth() + 1}/${date.getDate()}(${WEEKDAY_LABEL[date.getDay()]})`;
+  }
+
   async function createCalendarEvents(accessToken) {
     const sessions = buildSessions();
     const dates = computeSessionDates(sessions.length, timeInput.value || '20:00');
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    let created = 0;
+    const results = [];
     for (let i = 0; i < sessions.length; i++) {
       const start = dates[i];
       const end = new Date(start.getTime() + 30 * 60000);
@@ -127,17 +137,44 @@
         end: { dateTime: toLocalIso(end), timeZone },
         reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }] },
       };
-      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) created++;
+      let ok = false;
+      let htmlLink = null;
+      try {
+        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        ok = res.ok;
+        if (ok) {
+          const json = await res.json();
+          htmlLink = json.htmlLink || null;
+        }
+      } catch (e) {
+        ok = false;
+      }
+      results.push({ date: start, title: sessions[i].summary, ok, htmlLink });
     }
-    return created;
+    return results;
+  }
+
+  function renderResults(results) {
+    const okCount = results.filter(r => r.ok).length;
+    resultSummary.textContent = `${results[0] ? formatResultDate(results[0].date) : ''}〜${results[results.length - 1] ? formatResultDate(results[results.length - 1].date) : ''}の期間で、${okCount}/${results.length}件をカレンダーに登録しました。`;
+
+    resultList.innerHTML = results.map(r => `
+      <li class="calendar-result-item${r.ok ? '' : ' is-failed'}">
+        <span class="result-status">${r.ok ? '✅' : '⚠️'}</span>
+        <span class="result-date">${formatResultDate(r.date)}</span>
+        <span class="result-title">${r.title}</span>
+      </li>
+    `).join('');
+
+    formView.style.display = 'none';
+    resultView.style.display = 'block';
   }
 
   submitBtn.addEventListener('click', () => {
@@ -164,11 +201,10 @@
           return;
         }
         try {
-          const created = await createCalendarEvents(response.access_token);
-          statusEl.textContent = `✅ ${created}件の学習予定を作成しました！`;
+          const results = await createCalendarEvents(response.access_token);
+          renderResults(results);
           setSetupState('connected');
           banner.style.display = 'none';
-          setTimeout(() => overlay.classList.remove('is-open'), 1800);
         } catch (e) {
           statusEl.textContent = '予定の作成に失敗しました。時間をおいて再度お試しください。';
         } finally {
@@ -178,5 +214,14 @@
       },
     });
     tokenClient.requestAccessToken();
+  });
+
+  resultCloseBtn.addEventListener('click', () => {
+    overlay.classList.remove('is-open');
+    // 次回開いた時のためにフォーム表示へ戻しておく
+    setTimeout(() => {
+      resultView.style.display = 'none';
+      formView.style.display = 'block';
+    }, 300);
   });
 })();

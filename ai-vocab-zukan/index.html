@@ -136,26 +136,36 @@
     <div class="calendar-scrim" id="calendar-scrim"></div>
     <div class="calendar-modal">
       <button class="card-close" id="calendar-modal-close" aria-label="閉じる">×</button>
-      <h3>学習スケジュールを設定</h3>
-      <p class="calendar-modal-desc">9カテゴリ＋復習日、計10回分のセッションをGoogleカレンダーに自動登録します。</p>
 
-      <label class="calendar-field">
-        <span>開始時刻</span>
-        <input type="time" id="calendar-time-input" value="20:00">
-      </label>
+      <div id="calendar-form-view">
+        <h3>学習スケジュールを設定</h3>
+        <p class="calendar-modal-desc">9カテゴリ＋復習日、計10回分のセッションをGoogleカレンダーに自動登録します。</p>
 
-      <div class="calendar-field">
-        <span>曜日</span>
-        <div class="calendar-day-presets">
-          <button type="button" class="day-preset-btn is-active" data-preset="everyday">毎日</button>
-          <button type="button" class="day-preset-btn" data-preset="weekday">平日のみ</button>
-          <button type="button" class="day-preset-btn" data-preset="custom">カスタム</button>
+        <label class="calendar-field">
+          <span>開始時刻</span>
+          <input type="time" id="calendar-time-input" value="20:00">
+        </label>
+
+        <div class="calendar-field">
+          <span>曜日</span>
+          <div class="calendar-day-presets">
+            <button type="button" class="day-preset-btn is-active" data-preset="everyday">毎日</button>
+            <button type="button" class="day-preset-btn" data-preset="weekday">平日のみ</button>
+            <button type="button" class="day-preset-btn" data-preset="custom">カスタム</button>
+          </div>
+          <div class="calendar-day-checks" id="calendar-day-checks" style="display:none;"></div>
         </div>
-        <div class="calendar-day-checks" id="calendar-day-checks" style="display:none;"></div>
+
+        <button class="btn btn-primary" id="calendar-submit-btn">Googleでログインして予定を作成</button>
+        <p class="calendar-modal-note" id="calendar-modal-status"></p>
       </div>
 
-      <button class="btn btn-primary" id="calendar-submit-btn">Googleでログインして予定を作成</button>
-      <p class="calendar-modal-note" id="calendar-modal-status"></p>
+      <div id="calendar-result-view" style="display:none;">
+        <h3>📅 カレンダーに反映しました</h3>
+        <p class="calendar-modal-desc" id="calendar-result-summary"></p>
+        <ul class="calendar-result-list" id="calendar-result-list"></ul>
+        <button class="btn btn-primary" id="calendar-result-close">閉じる</button>
+      </div>
     </div>
   </div>
 
