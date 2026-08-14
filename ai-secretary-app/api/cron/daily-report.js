@@ -7,15 +7,20 @@
  */
 const { kvGet } = require('../../lib/kv');
 const { jstDateKey } = require('../../lib/date');
-const { summarizeEntries } = require('../../lib/claude-server');
+const { summarizeEntries, CATEGORY_LABELS } = require('../../lib/claude-server');
 const { sendLineBroadcast } = require('../../lib/line');
+const { saveDailyPageToNotion } = require('../../lib/notion');
 
-function buildFallbackSummary(entries) {
+function groupByCategory(entries) {
   const grouped = { work: [], idea: [], task: [], later: [], other: [] };
   entries.forEach((e) => {
     const bucket = grouped[e.category] ? e.category : 'other';
     grouped[bucket].push(e.text);
   });
+  return grouped;
+}
+
+function summaryFromGrouped(grouped) {
   const lines = [
     `・仕事：${grouped.work.length ? grouped.work.join(' / ') : '特になし'}`,
     `・新しいアイデア：${grouped.idea.length ? grouped.idea.join(' / ') : '特になし'}`,
@@ -39,23 +44,47 @@ module.exports = async function handler(req, res) {
   try {
     const raw = await kvGet(key);
     const entries = raw ? JSON.parse(raw) : [];
+    const grouped = groupByCategory(entries);
 
     let message;
+    let summary = null;
     if (!entries.length) {
       message = `【AI秘書メモ】${date}\n今日のメモはありませんでした。`;
     } else {
-      let summary;
       try {
         summary = await summarizeEntries(entries);
       } catch (e) {
         // Claudeが失敗しても、簡易版のまとめで必ず何か送る
-        summary = buildFallbackSummary(entries);
+        summary = summaryFromGrouped(grouped);
       }
       message = `【AI秘書メモ】${date}の振り返り\n\n${summary}`;
     }
 
     await sendLineBroadcast(message);
-    res.status(200).json({ ok: true, date, count: entries.length });
+
+    // Notion保存は独立した処理として扱う。失敗してもLINE送信は既に成功しているので、
+    // ここでエラーを投げてユーザーへの通知自体を止めない。
+    let notionStatus = 'skipped (no entries)';
+    if (entries.length && process.env.NOTION_TOKEN && process.env.NOTION_DATABASE_ID) {
+      try {
+        await saveDailyPageToNotion({
+          date,
+          grouped,
+          entryCount: entries.length,
+          entries,
+          summaryText: summary,
+          categoryLabels: CATEGORY_LABELS,
+        });
+        notionStatus = 'ok';
+      } catch (e) {
+        console.error('[cron] notion save failed:', e);
+        notionStatus = `failed: ${e.message}`;
+      }
+    } else if (entries.length) {
+      notionStatus = 'skipped (not configured)';
+    }
+
+    res.status(200).json({ ok: true, date, count: entries.length, notion: notionStatus });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
