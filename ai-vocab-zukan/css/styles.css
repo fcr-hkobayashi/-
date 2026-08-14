@@ -676,6 +676,73 @@ main {
   font-weight: 400;
 }
 
+/* ---------- カレンダータブ: 連携状態カード ---------- */
+.calendar-status-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin: 16px 0 20px;
+}
+.calendar-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.calendar-status .status-dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  background: var(--line);
+}
+.calendar-status.connected .status-dot { background: #34c07a; }
+.calendar-status.disconnected .status-dot { background: var(--ink-faint); }
+.calendar-status strong {
+  display: block;
+  font-size: 0.98rem;
+  margin-bottom: 4px;
+}
+.calendar-status p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.calendar-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.calendar-status-actions .btn-calendar { padding: 10px 18px; }
+.calendar-status-note {
+  margin: 12px 0 0;
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+}
+
+.calendar-upcoming-heading {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin: 0 0 10px;
+}
+.calendar-upcoming-list .calendar-result-item {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.calendar-upcoming-list .calendar-result-item:hover { background: var(--bg); }
+.calendar-empty-note {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 20px 0;
+}
+
 @media (max-width: 560px) {
   .calendar-banner { flex-direction: column; align-items: stretch; }
   .calendar-banner-text, .calendar-banner-actions {

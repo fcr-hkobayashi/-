@@ -5,8 +5,10 @@
   const CLIENT_ID = '979731749526-qvnhd4em0gnpscfpj5hagimk4erntlcn.apps.googleusercontent.com';
   const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
   const STORAGE_KEY = 'aivocab_calendar_setup_v1';
+  const EVENT_SOURCE_TAG = 'ai-vocab-zukan';
   const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
+  // --- バナー・セットアップモーダル ---
   const banner = document.getElementById('calendar-banner');
   const connectBtn = document.getElementById('calendar-connect-btn');
   const dismissBtn = document.getElementById('calendar-dismiss-btn');
@@ -24,7 +26,19 @@
   const resultList = document.getElementById('calendar-result-list');
   const resultCloseBtn = document.getElementById('calendar-result-close');
 
+  // --- カレンダータブ ---
+  const statusCard = document.getElementById('calendar-status-card');
+  const upcomingHeading = document.getElementById('calendar-upcoming-heading');
+  const upcomingList = document.getElementById('calendar-upcoming-list');
+
   let selectedDays = new Set([0, 1, 2, 3, 4, 5, 6]);
+  let tokenClient = null;
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
 
   function renderDayChecks() {
     dayChecksWrap.innerHTML = DAY_LABELS.map((label, i) => `
@@ -66,11 +80,15 @@
     try { localStorage.setItem(STORAGE_KEY, v); } catch (e) {}
   }
 
+  function openSetupModal() {
+    overlay.classList.add('is-open');
+  }
+
   if (getSetupState() === 'connected' || getSetupState() === 'dismissed') {
     banner.style.display = 'none';
   }
 
-  connectBtn.addEventListener('click', () => overlay.classList.add('is-open'));
+  connectBtn.addEventListener('click', openSetupModal);
   dismissBtn.addEventListener('click', () => {
     setSetupState('dismissed');
     banner.style.display = 'none';
@@ -81,9 +99,37 @@
     if (e.key === 'Escape' && overlay.classList.contains('is-open')) overlay.classList.remove('is-open');
   });
 
+  // --- 共通: OAuthトークン取得 ---
+  function ensureTokenClient() {
+    if (tokenClient) return tokenClient;
+    if (!window.google || !google.accounts || !google.accounts.oauth2) return null;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPE,
+      callback: () => {}, // requestToken()内で都度上書きする
+    });
+    return tokenClient;
+  }
+
+  function requestToken({ interactive }) {
+    return new Promise((resolve, reject) => {
+      const tc = ensureTokenClient();
+      if (!tc) { reject(new Error('gsi-not-ready')); return; }
+      tc.callback = (resp) => {
+        if (resp.error) reject(resp);
+        else resolve(resp.access_token);
+      };
+      tc.requestAccessToken(interactive ? {} : { prompt: '' });
+    });
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
   function toLocalIso(date) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+  }
+  const WEEKDAY_LABEL = ['日', '月', '火', '水', '木', '金', '土'];
+  function formatResultDate(date) {
+    return `${date.getMonth() + 1}/${date.getDate()}(${WEEKDAY_LABEL[date.getDay()]})`;
   }
 
   function computeSessionDates(count, timeStr) {
@@ -116,11 +162,6 @@
     return sessions;
   }
 
-  const WEEKDAY_LABEL = ['日', '月', '火', '水', '木', '金', '土'];
-  function formatResultDate(date) {
-    return `${date.getMonth() + 1}/${date.getDate()}(${WEEKDAY_LABEL[date.getDay()]})`;
-  }
-
   async function createCalendarEvents(accessToken) {
     const sessions = buildSessions();
     const dates = computeSessionDates(sessions.length, timeInput.value || '20:00');
@@ -136,6 +177,7 @@
         start: { dateTime: toLocalIso(start), timeZone },
         end: { dateTime: toLocalIso(end), timeZone },
         reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }] },
+        extendedProperties: { private: { source: EVENT_SOURCE_TAG } },
       };
       let ok = false;
       let htmlLink = null;
@@ -169,7 +211,7 @@
       <li class="calendar-result-item${r.ok ? '' : ' is-failed'}">
         <span class="result-status">${r.ok ? '✅' : '⚠️'}</span>
         <span class="result-date">${formatResultDate(r.date)}</span>
-        <span class="result-title">${r.title}</span>
+        <span class="result-title">${escapeHtml(r.title)}</span>
       </li>
     `).join('');
 
@@ -177,12 +219,12 @@
     resultView.style.display = 'block';
   }
 
-  submitBtn.addEventListener('click', () => {
+  submitBtn.addEventListener('click', async () => {
     if (selectedDays.size === 0) {
       statusEl.textContent = '曜日を1つ以上選んでください。';
       return;
     }
-    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    if (!ensureTokenClient()) {
       statusEl.textContent = 'Googleログインの準備中です。数秒後にもう一度お試しください。';
       return;
     }
@@ -190,30 +232,19 @@
     submitBtn.disabled = true;
     submitBtn.textContent = '連携中…';
 
-    const tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPE,
-      callback: async (response) => {
-        if (response.error) {
-          statusEl.textContent = '連携がキャンセルされました。もう一度お試しください。';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Googleでログインして予定を作成';
-          return;
-        }
-        try {
-          const results = await createCalendarEvents(response.access_token);
-          renderResults(results);
-          setSetupState('connected');
-          banner.style.display = 'none';
-        } catch (e) {
-          statusEl.textContent = '予定の作成に失敗しました。時間をおいて再度お試しください。';
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Googleでログインして予定を作成';
-        }
-      },
-    });
-    tokenClient.requestAccessToken();
+    try {
+      const accessToken = await requestToken({ interactive: true });
+      const results = await createCalendarEvents(accessToken);
+      renderResults(results);
+      setSetupState('connected');
+      banner.style.display = 'none';
+      renderStatusCard();
+    } catch (e) {
+      statusEl.textContent = '連携がキャンセルされたか、予定の作成に失敗しました。もう一度お試しください。';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Googleでログインして予定を作成';
+    }
   });
 
   resultCloseBtn.addEventListener('click', () => {
@@ -224,4 +255,110 @@
       formView.style.display = 'block';
     }, 300);
   });
+
+  // --- カレンダータブ: 連携状態・今後の予定 ---
+  function renderStatusCard() {
+    const connected = getSetupState() === 'connected';
+    if (connected) {
+      statusCard.innerHTML = `
+        <div class="calendar-status connected">
+          <span class="status-dot"></span>
+          <div>
+            <strong>✅ Googleカレンダーと連携済み</strong>
+            <p>下のボタンを押すと、実際にカレンダーへ登録されている予定をここに表示します。</p>
+          </div>
+        </div>
+        <div class="calendar-status-actions">
+          <button class="btn-calendar" id="calendar-refresh-btn">最新の予定を確認</button>
+          <button class="calendar-dismiss-btn" id="calendar-reconnect-btn">スケジュールを作り直す</button>
+        </div>
+        <p class="calendar-status-note" id="calendar-refresh-note"></p>
+      `;
+      document.getElementById('calendar-refresh-btn').addEventListener('click', () => refreshUpcoming(true));
+      document.getElementById('calendar-reconnect-btn').addEventListener('click', openSetupModal);
+      refreshUpcoming(false);
+    } else {
+      statusCard.innerHTML = `
+        <div class="calendar-status disconnected">
+          <span class="status-dot"></span>
+          <div>
+            <strong>🔌 まだ連携していません</strong>
+            <p>連携すると、9カテゴリ＋復習日の学習予定が自動でGoogleカレンダーに登録されます。</p>
+          </div>
+        </div>
+        <div class="calendar-status-actions">
+          <button class="btn-calendar" id="calendar-open-setup-btn">連携する</button>
+        </div>
+      `;
+      document.getElementById('calendar-open-setup-btn').addEventListener('click', openSetupModal);
+      upcomingHeading.style.display = 'none';
+      upcomingList.innerHTML = '';
+    }
+  }
+
+  async function refreshUpcoming(interactive) {
+    const noteEl = document.getElementById('calendar-refresh-note');
+    const refreshBtn = document.getElementById('calendar-refresh-btn');
+    if (noteEl) noteEl.textContent = '確認中…';
+    if (refreshBtn) refreshBtn.disabled = true;
+
+    try {
+      if (!ensureTokenClient()) throw new Error('gsi-not-ready');
+      const accessToken = await requestToken({ interactive });
+      const items = await fetchUpcomingEvents(accessToken);
+      renderUpcoming(items);
+      if (noteEl) noteEl.textContent = `最終確認: たった今`;
+    } catch (e) {
+      if (!interactive) {
+        // サイレント取得の失敗は無言で諦める（毎回ログイン要求すると煩わしいため）
+        if (noteEl) noteEl.textContent = '「最新の予定を確認」を押すと表示されます。';
+      } else {
+        if (noteEl) noteEl.textContent = '取得に失敗しました。もう一度お試しください。';
+      }
+    } finally {
+      if (refreshBtn) refreshBtn.disabled = false;
+    }
+  }
+
+  async function fetchUpcomingEvents(accessToken) {
+    const params = new URLSearchParams({
+      privateExtendedProperty: `source=${EVENT_SOURCE_TAG}`,
+      timeMin: new Date().toISOString(),
+      orderBy: 'startTime',
+      singleEvents: 'true',
+      maxResults: '10',
+    });
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) throw new Error('fetch-failed');
+    const json = await res.json();
+    return json.items || [];
+  }
+
+  function renderUpcoming(items) {
+    if (!items.length) {
+      upcomingHeading.style.display = 'none';
+      upcomingList.innerHTML = '<p class="calendar-empty-note">今後の予定は見つかりませんでした。</p>';
+      return;
+    }
+    upcomingHeading.style.display = 'block';
+    upcomingList.innerHTML = `<ul class="calendar-result-list">${items.map(ev => {
+      const start = new Date(ev.start.dateTime || ev.start.date);
+      return `
+        <li>
+          <a class="calendar-result-item" href="${ev.htmlLink}" target="_blank" rel="noopener">
+            <span class="result-status">📅</span>
+            <span class="result-date">${formatResultDate(start)}</span>
+            <span class="result-title">${escapeHtml(ev.summary || '')}</span>
+          </a>
+        </li>
+      `;
+    }).join('')}</ul>`;
+  }
+
+  const calendarTabBtn = document.querySelector('.tab-btn[data-tab="calendar"]');
+  if (calendarTabBtn) {
+    calendarTabBtn.addEventListener('click', renderStatusCard);
+  }
 })();

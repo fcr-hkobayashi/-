@@ -19,6 +19,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn is-active" data-tab="zukan" role="tab" aria-selected="true">📖 図鑑</button>
     <button class="tab-btn" data-tab="quiz" role="tab" aria-selected="false">✏️ クイズ</button>
+    <button class="tab-btn" data-tab="calendar" role="tab" aria-selected="false">📅 カレンダー</button>
   </nav>
 
   <div class="calendar-banner" id="calendar-banner">
@@ -98,6 +99,13 @@
         <div class="quiz-feedback" id="quiz-feedback"></div>
         <button class="btn btn-primary" id="quiz-next" style="display:none;">次の問題へ →</button>
       </div>
+    </section>
+
+    <!-- ===================== カレンダータブ ===================== -->
+    <section id="tab-calendar" class="tab-panel">
+      <div class="calendar-status-card" id="calendar-status-card"></div>
+      <h3 class="calendar-upcoming-heading" id="calendar-upcoming-heading" style="display:none;">次回以降の予定</h3>
+      <div class="calendar-upcoming-list" id="calendar-upcoming-list"></div>
     </section>
   </main>
 
