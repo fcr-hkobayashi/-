@@ -6,6 +6,7 @@
 <title>AI用語ずかん</title>
 <meta name="description" content="AI用語を図鑑のように集めて楽しく覚える単語帳アプリ">
 <link rel="stylesheet" href="css/styles.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -19,6 +20,17 @@
     <button class="tab-btn is-active" data-tab="zukan" role="tab" aria-selected="true">📖 図鑑</button>
     <button class="tab-btn" data-tab="quiz" role="tab" aria-selected="false">✏️ クイズ</button>
   </nav>
+
+  <div class="calendar-banner" id="calendar-banner">
+    <div class="calendar-banner-text">
+      <strong>📅 Googleカレンダーで毎日リマインド</strong>
+      <p>9カテゴリ＋復習日を1日ずつ、自動で予定登録します。</p>
+    </div>
+    <div class="calendar-banner-actions">
+      <button class="btn-calendar" id="calendar-connect-btn">連携する</button>
+      <button class="calendar-dismiss-btn" id="calendar-dismiss-btn">あとで</button>
+    </div>
+  </div>
 
   <main>
     <!-- ===================== 図鑑タブ ===================== -->
@@ -119,11 +131,40 @@
     </div>
   </div>
 
+  <!-- Googleカレンダー連携セットアップ -->
+  <div class="calendar-overlay" id="calendar-overlay">
+    <div class="calendar-scrim" id="calendar-scrim"></div>
+    <div class="calendar-modal">
+      <button class="card-close" id="calendar-modal-close" aria-label="閉じる">×</button>
+      <h3>学習スケジュールを設定</h3>
+      <p class="calendar-modal-desc">9カテゴリ＋復習日、計10回分のセッションをGoogleカレンダーに自動登録します。</p>
+
+      <label class="calendar-field">
+        <span>開始時刻</span>
+        <input type="time" id="calendar-time-input" value="20:00">
+      </label>
+
+      <div class="calendar-field">
+        <span>曜日</span>
+        <div class="calendar-day-presets">
+          <button type="button" class="day-preset-btn is-active" data-preset="everyday">毎日</button>
+          <button type="button" class="day-preset-btn" data-preset="weekday">平日のみ</button>
+          <button type="button" class="day-preset-btn" data-preset="custom">カスタム</button>
+        </div>
+        <div class="calendar-day-checks" id="calendar-day-checks" style="display:none;"></div>
+      </div>
+
+      <button class="btn btn-primary" id="calendar-submit-btn">Googleでログインして予定を作成</button>
+      <p class="calendar-modal-note" id="calendar-modal-status"></p>
+    </div>
+  </div>
+
   <footer class="app-footer">
     <p>進捗はこのブラウザに自動で保存されます。全 <span id="footer-total">0</span> 語収録。</p>
   </footer>
 
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/calendar.js"></script>
 </body>
 </html>
