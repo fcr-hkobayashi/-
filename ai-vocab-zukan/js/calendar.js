@@ -32,7 +32,6 @@
   const upcomingList = document.getElementById('calendar-upcoming-list');
 
   let selectedDays = new Set([0, 1, 2, 3, 4, 5, 6]);
-  let tokenClient = null;
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -100,25 +99,38 @@
   });
 
   // --- 共通: OAuthトークン取得 ---
-  function ensureTokenClient() {
-    if (tokenClient) return tokenClient;
-    if (!window.google || !google.accounts || !google.accounts.oauth2) return null;
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPE,
-      callback: () => {}, // requestToken()内で都度上書きする
-    });
-    return tokenClient;
+  // 呼び出しのたびに新しいtokenClientを作る（サイレント試行の直後に対話的リクエストを
+  // 投げるなど、同じクライアントを使い回すとGoogle側の内部状態が噛み合わず応答が返って
+  // こなくなることがあるための対策）。タイムアウトも必ず設定し、画面が固まったままに
+  // ならないようにする。
+  function isGsiReady() {
+    return !!(window.google && google.accounts && google.accounts.oauth2);
   }
 
-  function requestToken({ interactive }) {
+  function requestToken({ interactive, timeoutMs = 15000 }) {
     return new Promise((resolve, reject) => {
-      const tc = ensureTokenClient();
-      if (!tc) { reject(new Error('gsi-not-ready')); return; }
-      tc.callback = (resp) => {
-        if (resp.error) reject(resp);
-        else resolve(resp.access_token);
-      };
+      if (!isGsiReady()) {
+        reject(new Error('Googleログインスクリプトの読み込みが完了していません'));
+        return;
+      }
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('応答がありませんでした(タイムアウト)。ポップアップがブロックされていないか確認してください'));
+      }, timeoutMs);
+
+      const tc = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPE,
+        callback: (resp) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (resp.error) reject(resp);
+          else resolve(resp.access_token);
+        },
+      });
       tc.requestAccessToken(interactive ? {} : { prompt: '' });
     });
   }
@@ -224,7 +236,7 @@
       statusEl.textContent = '曜日を1つ以上選んでください。';
       return;
     }
-    if (!ensureTokenClient()) {
+    if (!isGsiReady()) {
       statusEl.textContent = 'Googleログインの準備中です。数秒後にもう一度お試しください。';
       return;
     }
@@ -303,10 +315,10 @@
     if (refreshBtn) refreshBtn.disabled = true;
 
     try {
-      if (!ensureTokenClient()) throw new Error('Googleログインの準備ができていません(スクリプト未読み込み)');
+      if (!isGsiReady()) throw new Error('Googleログインの準備ができていません(スクリプト未読み込み)');
       let accessToken;
       try {
-        accessToken = await requestToken({ interactive });
+        accessToken = await requestToken({ interactive, timeoutMs: interactive ? 15000 : 6000 });
       } catch (tokenErr) {
         const reason = (tokenErr && (tokenErr.error || tokenErr.message)) || '不明なエラー';
         throw new Error(`ログインに失敗: ${reason}`);
