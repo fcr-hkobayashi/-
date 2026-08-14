@@ -6,6 +6,7 @@
 
   const catById = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
   let activeCategory = 'all';
+  let searchQuery = '';
   let collected = loadCollected();
   let currentDetailTermId = null;
 
@@ -69,17 +70,46 @@
     chipRow.appendChild(frag);
   }
 
+  // ---------------- search ----------------
+  const searchInput = document.getElementById('term-search');
+  const searchClearBtn = document.getElementById('search-clear-btn');
+
+  searchInput.addEventListener('input', () => {
+    searchQuery = searchInput.value.trim();
+    searchClearBtn.style.display = searchQuery ? 'flex' : 'none';
+    renderGrid();
+  });
+  searchClearBtn.addEventListener('click', () => {
+    searchQuery = '';
+    searchInput.value = '';
+    searchClearBtn.style.display = 'none';
+    searchInput.focus();
+    renderGrid();
+  });
+
   // ---------------- grid ----------------
   const grid = document.getElementById('card-grid');
   function visibleTerms() {
-    return activeCategory === 'all' ? TERMS : TERMS.filter(t => t.category === activeCategory);
+    let terms = activeCategory === 'all' ? TERMS : TERMS.filter(t => t.category === activeCategory);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      terms = terms.filter(t =>
+        t.term.toLowerCase().includes(q) ||
+        (t.reading && t.reading.toLowerCase().includes(q)) ||
+        t.summary.toLowerCase().includes(q)
+      );
+    }
+    return terms;
   }
 
   function renderGrid() {
     const terms = visibleTerms();
     grid.innerHTML = '';
     if (terms.length === 0) {
-      grid.innerHTML = '<div class="no-results">該当する用語がありません</div>';
+      const noResults = document.createElement('div');
+      noResults.className = 'no-results';
+      noResults.textContent = searchQuery ? `「${searchQuery}」に一致する用語がありません` : '該当する用語がありません';
+      grid.appendChild(noResults);
       return;
     }
     const frag = document.createDocumentFragment();
