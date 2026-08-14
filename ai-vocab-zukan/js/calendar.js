@@ -246,6 +246,7 @@
 
     try {
       const accessToken = await requestToken({ interactive: true });
+      await deletePreviouslyCreatedEvents(accessToken);
       const results = await createCalendarEvents(accessToken);
       renderResults(results);
       setSetupState('connected');
@@ -339,13 +340,13 @@
     }
   }
 
-  async function fetchUpcomingEvents(accessToken) {
+  async function fetchUpcomingEvents(accessToken, maxResults = 10) {
     const params = new URLSearchParams({
       privateExtendedProperty: `source=${EVENT_SOURCE_TAG}`,
       timeMin: new Date().toISOString(),
       orderBy: 'startTime',
       singleEvents: 'true',
-      maxResults: '10',
+      maxResults: String(maxResults),
     });
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -360,6 +361,23 @@
     }
     const json = await res.json();
     return json.items || [];
+  }
+
+  // 「作り直す」を複数回押しても重複が積み上がらないよう、新規作成前に
+  // このアプリが過去に作った未来の予定をすべて削除しておく
+  async function deletePreviouslyCreatedEvents(accessToken) {
+    const existing = await fetchUpcomingEvents(accessToken, 50);
+    for (const ev of existing) {
+      if (!ev.id) continue;
+      try {
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+      } catch (e) {
+        // 個別の削除失敗は無視して続行（新規作成自体は妨げない）
+      }
+    }
   }
 
   function renderUpcoming(items) {
