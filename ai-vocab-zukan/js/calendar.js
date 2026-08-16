@@ -7,6 +7,8 @@
   const STORAGE_KEY = 'aivocab_calendar_setup_v1';
   const EVENT_SOURCE_TAG = 'ai-vocab-zukan';
   const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+  const REDIRECT_URI = location.origin + location.pathname;
+  const PENDING_KEY = 'aivocab_calendar_pending_v1';
 
   // --- バナー・セットアップモーダル ---
   const banner = document.getElementById('calendar-banner');
@@ -135,6 +137,28 @@
     });
   }
 
+  // 対話的なログイン(初回連携・手動更新)は、ポップアップではなく画面遷移方式で行う。
+  // スマホのSafari/Chromeでは、Google側の同意画面の後にポップアップから元の画面へ
+  // うまく戻れず白い画面のまま止まってしまうことがあるため、ポップアップに頼らない
+  // 「その場でGoogleへ移動→処理内容を覚えておいて→戻ってきたら続きを自動実行」という
+  // 方式に統一する。
+  function beginInteractiveAuth(pending) {
+    if (!isGsiReady()) {
+      throw new Error('Googleログインスクリプトの読み込みが完了していません');
+    }
+    try {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+    } catch (e) { /* ignore */ }
+    const tc = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPE,
+      ux_mode: 'redirect',
+      redirect_uri: REDIRECT_URI,
+      callback: () => {}, // リダイレクトモードでは呼ばれない。戻ってきた後にhandleAuthRedirectReturn()で処理する
+    });
+    tc.requestAccessToken();
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
   function toLocalIso(date) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
@@ -231,30 +255,23 @@
     resultView.style.display = 'block';
   }
 
-  submitBtn.addEventListener('click', async () => {
+  submitBtn.addEventListener('click', () => {
     if (selectedDays.size === 0) {
       statusEl.textContent = '曜日を1つ以上選んでください。';
       return;
     }
-    if (!isGsiReady()) {
-      statusEl.textContent = 'Googleログインの準備中です。数秒後にもう一度お試しください。';
-      return;
-    }
     statusEl.textContent = '';
     submitBtn.disabled = true;
-    submitBtn.textContent = '連携中…';
-
+    submitBtn.textContent = 'Googleにログイン中…';
     try {
-      const accessToken = await requestToken({ interactive: true });
-      await deletePreviouslyCreatedEvents(accessToken);
-      const results = await createCalendarEvents(accessToken);
-      renderResults(results);
-      setSetupState('connected');
-      banner.style.display = 'none';
-      renderStatusCard();
+      beginInteractiveAuth({
+        action: 'setup',
+        time: timeInput.value || '20:00',
+        days: [...selectedDays],
+      });
+      // ここから先はGoogleのページへ画面遷移するため、このページの続きの処理はない
     } catch (e) {
-      statusEl.textContent = '連携がキャンセルされたか、予定の作成に失敗しました。もう一度お試しください。';
-    } finally {
+      statusEl.textContent = 'ログインの開始に失敗しました。もう一度お試しください。';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Googleでログインして予定を作成';
     }
@@ -287,7 +304,7 @@
         </div>
         <p class="calendar-status-note" id="calendar-refresh-note"></p>
       `;
-      document.getElementById('calendar-refresh-btn').addEventListener('click', () => refreshUpcoming(true));
+      document.getElementById('calendar-refresh-btn').addEventListener('click', () => startInteractiveRefresh());
       document.getElementById('calendar-reconnect-btn').addEventListener('click', openSetupModal);
       refreshUpcoming(false);
     } else {
@@ -309,6 +326,8 @@
     }
   }
 
+  // タブを開いた時の裏側での自動チェックのみ。ここは無言で失敗してよいので、
+  // これまで通りポップアップ方式のサイレントリクエストを使う。
   async function refreshUpcoming(interactive) {
     const noteEl = document.getElementById('calendar-refresh-note');
     const refreshBtn = document.getElementById('calendar-refresh-btn');
@@ -337,6 +356,16 @@
       }
     } finally {
       if (refreshBtn) refreshBtn.disabled = false;
+    }
+  }
+
+  // 手動での「最新の予定を確認」はスマホでの白画面固まり対策としてリダイレクト方式を使う
+  function startInteractiveRefresh() {
+    const noteEl = document.getElementById('calendar-refresh-note');
+    try {
+      beginInteractiveAuth({ action: 'refresh' });
+    } catch (e) {
+      if (noteEl) noteEl.textContent = `ログインの開始に失敗しました: ${e.message || e}`;
     }
   }
 
@@ -405,4 +434,59 @@
   if (calendarTabBtn) {
     calendarTabBtn.addEventListener('click', renderStatusCard);
   }
+
+  // Googleのリダイレクトから戻ってきた直後の処理。
+  // beginInteractiveAuth()で保存しておいた「何をしようとしていたか」を元に、
+  // 中断していた処理(予定作成 or 最新の予定を取得)を自動で再開する。
+  async function handleAuthRedirectReturn() {
+    if (!location.hash || !location.hash.includes('access_token=')) return;
+
+    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const accessToken = params.get('access_token');
+    const authError = params.get('error');
+    // トークンがURLに残り続けないよう、処理内容に関わらず先にURLを掃除する
+    history.replaceState(null, '', location.pathname + location.search);
+
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null'); } catch (e) { /* ignore */ }
+    try { sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* ignore */ }
+
+    if (!pending) return;
+
+    if (authError || !accessToken) {
+      if (pending.action === 'setup') {
+        openSetupModal();
+        statusEl.textContent = 'ログインが完了しませんでした。もう一度お試しください。';
+      }
+      return;
+    }
+
+    if (pending.action === 'setup') {
+      selectedDays = new Set(Array.isArray(pending.days) && pending.days.length ? pending.days : [0, 1, 2, 3, 4, 5, 6]);
+      timeInput.value = pending.time || '20:00';
+      openSetupModal();
+      statusEl.textContent = '予定を作成しています…';
+      try {
+        await deletePreviouslyCreatedEvents(accessToken);
+        const results = await createCalendarEvents(accessToken);
+        renderResults(results);
+        setSetupState('connected');
+        banner.style.display = 'none';
+      } catch (e) {
+        statusEl.textContent = '予定の作成に失敗しました。もう一度お試しください。';
+      }
+    } else if (pending.action === 'refresh') {
+      if (calendarTabBtn) calendarTabBtn.click();
+      try {
+        const items = await fetchUpcomingEvents(accessToken);
+        renderUpcoming(items);
+        const noteEl = document.getElementById('calendar-refresh-note');
+        if (noteEl) noteEl.textContent = '最終確認: たった今';
+      } catch (e) {
+        const noteEl = document.getElementById('calendar-refresh-note');
+        if (noteEl) noteEl.textContent = `取得に失敗しました: ${e.message || e}`;
+      }
+    }
+  }
+  handleAuthRedirectReturn();
 })();
