@@ -129,6 +129,28 @@ Vault 内で Claude Code を起動し、Google Calendar / Google Drive コネク
 
 ---
 
+## Claude会話の取り込み（claude.ai → Obsidian）
+
+claude.ai の会話履歴は API/コネクタから直接読めないため、**公式エクスポートを一度取得**して取り込みます。
+一度取り込めば、次回以降は同じ手順で差分だけ追加されます（uuid で重複スキップ）。
+
+### 手順
+1. **エクスポート依頼**: claude.ai → 設定 → プライバシー →「データをエクスポート（Export data）」。
+   数分〜数十分後にダウンロードリンクがメールで届く。
+2. **zip を解凍**して `conversations.json` を取り出す。
+3. **Claude Code に渡す**。次のいずれか:
+   - `conversations.json` を Vault の `_import/` に置いて `/claude-import` を実行、または
+   - Google Drive にアップロードし、コネクタ有効なセッションで `/claude-import`（Drive から自動取得）。
+4. 会話は `40_Resources/ClaudeChats/` に「1会話=1ノート」で入り、`_ClaudeChats索引.md` からたどれる。
+5. 重要な会話は `/permanent` で `60_Permanent/` に要約・昇華する。
+
+### 補足
+- 生の `conversations.json` は個人情報を含むため `.gitignore` 済み（ノートだけコミット）。
+- 完全自動化は不可（エクスポートが手動＝メール配信のため）。定期的にエクスポートを `_import/` か
+  Drive に置く運用にすれば、`/claude-import` で半自動的に最新化できる。
+
+---
+
 ## 運用のコツ
 
 1. **とにかく Inbox に書く** — 分類は後で Claude に任せる。書く摩擦を減らすのが最優先。
