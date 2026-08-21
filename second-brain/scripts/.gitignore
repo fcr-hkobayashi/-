@@ -1,0 +1,4 @@
+# Runtime artifacts produced by the maintenance loops
+.lint-report.txt
+*.log
+.session-end.log

@@ -1,0 +1,13 @@
+# Second-brain maintenance loops — example crontab.
+# Install with:  crontab -e   (paste and edit paths), or  crontab crontab.example
+# Replace /ABS/PATH with the absolute path to the second-brain folder.
+# Times are in your machine's local timezone.
+#
+# Nightly compile — fold new raw/ material into the wiki (cheap model).
+0 2 * * *   /ABS/PATH/second-brain/scripts/nightly-compile.sh   >> /ABS/PATH/second-brain/scripts/.nightly.log 2>&1
+
+# Weekly lint (Mondays 03:00) — dead links, dupes, contradictions, expiries.
+0 3 * * 1   /ABS/PATH/second-brain/scripts/weekly-lint.sh        >> /ABS/PATH/second-brain/scripts/.lint.log 2>&1
+
+# Weekly synthesis (Mondays 04:00) — cross-vault report (premium model).
+0 4 * * 1   /ABS/PATH/second-brain/scripts/weekly-synthesis.sh   >> /ABS/PATH/second-brain/scripts/.synthesis.log 2>&1

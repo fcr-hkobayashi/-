@@ -1,0 +1,15 @@
+{
+  "//": "Merge this into your Claude Code settings.json (.claude/settings.json in the vault, or ~/.claude/settings.json). Replace ABSOLUTE_PATH with the real path to this second-brain folder. The SessionEnd hook fires the session-end miner automatically when a session ends.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABSOLUTE_PATH/second-brain/scripts/session-end-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
