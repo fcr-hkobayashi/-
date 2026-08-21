@@ -22,6 +22,7 @@ obsidian-second-brain/
 ├── README.md          # セットアップ手順・使い方
 ├── 00_Inbox/          # 未整理のメモ。とりあえず全部ここに入れる
 ├── 10_Daily/          # デイリーノート（YYYY-MM-DD.md）
+├── 15_Meetings/       # Google Meet 予定から自動生成した会議ノート
 ├── 20_Projects/       # 締切と目標がある進行中の案件（PARA: Projects）
 ├── 30_Areas/          # 継続的に責任を持つ領域（PARA: Areas）例: 健康, 家計, 仕事
 ├── 40_Resources/      # 興味・参考資料・知識のストック（PARA: Resources）
@@ -93,6 +94,9 @@ status: active | done | archived
    Vault を検索し、関連ノートをリンク付きでまとめる。
 5. **タスク抽出**: ノート中の `- [ ]` を集めて `20_Projects/` の該当ノートやデイリーに集約する。
 6. **週次レビュー**: `/weekly-review` で直近7日を振り返り、未完了タスク・主要トピックを整理する。
+7. **Meet 連携**: `/meet-sync` で Google カレンダーの Meet 予定を `15_Meetings/` に会議ノート化する。
+   Transcript 本文が読める会議は要約・アクション抽出まで、読めない会議はリンクのみ残す（詳細は
+   `.claude/commands/meet-sync.md`）。
 
 ---
 

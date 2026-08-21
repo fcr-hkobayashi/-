@@ -1,0 +1,7 @@
+{
+  "last_synced": "2026-08-21",
+  "synced_event_ids": [
+    "e9im6r31d5miqsr3d1im8tbcd5n6ebbcd5n6meim64t6copmcgsj0d315lgm4dpo5kq30oph5ks6cc355lij8p9ocgs38d9j74qm2eik95akep2fe5i64l39b8t3cc1q68o34dhd60s2qc1kago38ehg60t30c2q"
+  ],
+  "note": "last_synced=最後に同期した日。synced_event_ids=取り込み済みカレンダー予定ID（重複防止用）。/meet-sync が自動更新する。"
+}
