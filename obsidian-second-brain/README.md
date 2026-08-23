@@ -149,6 +149,17 @@ claude.ai の会話履歴は API/コネクタから直接読めないため、**
 - 完全自動化は不可（エクスポートが手動＝メール配信のため）。定期的にエクスポートを `_import/` か
   Drive に置く運用にすれば、`/claude-import` で半自動的に最新化できる。
 
+### Claude Code（CLI）の記録も取り込む
+claude.ai のブラウザ会話とは別に、Claude Code のローカルセッション記録
+（`~/.claude/projects/**/*.jsonl`）も取り込めます。**記録が実在する自分の PC で**:
+```
+python3 tools/claude_code_import.py            # ~/.claude/projects 全体
+# または
+/claude-code-import
+```
+→ `40_Resources/ClaudeCode/` に「1セッション=1ノート」で入り、`_ClaudeCode索引.md` からたどれます。
+（リモート実行環境ではその環境分の記録しか無く、コピーが制限されることがあります。全記録は PC 実行が確実。）
+
 ---
 
 ## 運用のコツ
