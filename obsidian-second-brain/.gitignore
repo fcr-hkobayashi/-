@@ -1,6 +1,7 @@
 # 取り込み用の生データ（個人情報を含むためコミットしない）
-_import/*.json
-_import/*.zip
+# _import 配下は _about.md 以外すべて無視
+_import/*
+!_import/_about.md
 
 # OS/エディタの一時ファイル
 .DS_Store

@@ -63,7 +63,9 @@ def render(conv: dict) -> tuple[str, str, str]:
     title = conv.get("name") or conv.get("title") or "無題の会話"
     created = to_date(conv.get("created_at"))
     updated = to_date(conv.get("updated_at")) or created
-    fname = f"{created or '0000-00-00'}-{slugify(title, uuid[:8] or 'chat')}.md"
+    # uuid の短縮を末尾に付けて一意化（同日・同タイトルの取りこぼしを防ぐ／再実行は同名でスキップ）
+    suffix = (uuid[:8] or "chat")
+    fname = f"{created or '0000-00-00'}-{slugify(title, suffix)}-{suffix}.md"
 
     lines = [
         "---",
