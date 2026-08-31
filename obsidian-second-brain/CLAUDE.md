@@ -11,6 +11,8 @@
 - 日々の思考・メモ・学び・タスクを一箇所に蓄積し、後から再利用できる「知識の外部記憶」を作る。
 - Claude Code が、メモの整理・要約・リンク付け・検索・棚卸しを自動で手伝う。
 - 人間は「書き殴る」ことに集中し、整理と構造化は Claude Code に任せる。
+- **`70_Claude/CONTEXT.md` に「私は誰で、いま何をしているか」を書いてある。
+  提案・要約・整理をする前に必ず読むこと**（このファイルが「どう書くか」、CONTEXT.md が「誰のために書くか」）。
 
 ---
 
@@ -28,6 +30,7 @@ obsidian-second-brain/
 ├── 40_Resources/      # 興味・参考資料・知識のストック（PARA: Resources）
 ├── 50_Archive/        # 完了・非活性になったもの（PARA: Archive）
 ├── 60_Permanent/      # 自分の言葉で書き直した永久保存ノート（Zettelkasten）
+├── 70_Claude/         # Claude の作業領域（CONTEXT.md / memory / outputs）
 ├── 90_Templates/      # ノートテンプレート
 └── .claude/commands/  # Claude Code のカスタムスラッシュコマンド
 ```
@@ -115,6 +118,49 @@ status: active | done | archived
 
 - 「今日」は実行時のシステム日付を使う。frontmatter・ファイル名の日付は必ず実日付にする。
 - 相対表現（「昨日」「先週」）はシステム日付から計算する。
+
+---
+
+## 9. Git 運用（バックアップと同期）
+
+この Vault は Git リポジトリ **`~/second-brain-repo`** の一部です。
+**リポジトリのルートは Vault の1つ上**で、他のアプリ（`ai-secretary-app` など）と同居しています。
+
+```
+~/second-brain-repo/          ← ここが git のルート
+├── obsidian-second-brain/    ← この Vault
+├── ai-secretary-app/
+└── ...（他プロジェクト）
+```
+
+- **コミット対象は Vault 配下だけに限定する**。`git add -A` は他プロジェクトの作業中コードまで
+  巻き込むため使わない。必ず `git add obsidian-second-brain/...` のようにパスを指定する。
+- ノートを追加・移動・更新したら、その作業のまとまりごとにコミットする。
+  コミットメッセージは日本語でよい（例: `Inbox整理: 投資メモを40_Resourcesへ`）。
+- **プッシュは勝手に行わず、実行前にユーザーへ確認する**（ルーティン実行時を除く）。
+- コミットしないもの: `_import/` の生データ、`.obsidian/workspace.json`、`.DS_Store`、
+  `.claude/settings.local.json`（`.gitignore` 済み）。
+- 個人情報・機密を含むノートは、コミット前に内容を確認する。
+
+---
+
+## 10. Claude Code 活動の自動記録（毎晩 23:30）
+
+macOS の launchd が毎晩 23:30 に `tools/daily_claude_log.sh` を実行し、次の3つを自動で行う。
+
+1. `tools/claude_code_import.py` — その日のセッション記録を `40_Resources/ClaudeCode/` にノート化
+   （`session_id` で判定するので、何度実行しても重複しない）
+2. `tools/daily_claude_log.py` — その日の活動一覧を `10_Daily/YYYY-MM-DD.md` の
+   「## 🤖 Claude Code 活動ログ」セクションに書き込む（デイリーノートが無ければテンプレから作成）。
+   セクションは毎回まるごと置き換わるため、手で書いた他の部分は壊さない
+3. Vault 配下だけを `git commit`（`10_Daily` と `40_Resources/ClaudeCode` のみ。**プッシュはしない**）
+
+- 登録先: `~/Library/LaunchAgents/com.hkobayashi.claude-code-daily-log.plist`
+- 実行ログ: `70_Claude/memory/daily_claude_log.log`（`*.log` は `.gitignore` 済み）
+- 手動実行: `bash tools/daily_claude_log.sh`、または特定日だけなら
+  `python3 tools/daily_claude_log.py --date 2026-08-30`
+- **この自動セクション（`## 🤖 Claude Code 活動ログ` 〜 `<!-- /claude-code-log -->`）は
+  手で編集しない**。翌日の実行で上書きされる。書き残したいことは「📝 メモ・気づき」へ。
 
 ---
 
