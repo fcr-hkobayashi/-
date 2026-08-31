@@ -3,5 +3,20 @@
 _import/*
 !_import/_about.md
 
+# Obsidian（PC固有・自動生成のため共有しない）
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/plugins/*/data.json
+.trash/
+
+# Claude Code（ローカル権限設定）
+.claude/settings.local.json
+
 # OS/エディタの一時ファイル
 .DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Smart Connections のベクトルインデックス
+.smart-env

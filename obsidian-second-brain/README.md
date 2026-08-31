@@ -3,10 +3,13 @@
 Obsidian の Vault（メモの保管庫）を、Claude Code が読み書きできる「第二の脳」として運用するための一式です。
 メモは人間が書き殴り、整理・要約・リンク付け・検索は Claude Code に任せます。
 
-> 参考にした記事: `couples-navi.com` の「Claude Code × Obsidian セカンドブレイン構築」記事。
-> （※ 構築時点でこのリモート環境からは当該サイトへアクセスできなかったため、
-> 一般的な Obsidian × Claude Code 連携パターンと PARA + Zettelkasten 方式で構成しています。
-> 記事固有の手順があれば、内容を貼っていただければこの構成に反映します。）
+> 参考にした記事:
+> [Claude Code × Obsidian セカンドブレイン構築](https://couples-navi.com/2026/05/09/claude-code-obsidian-second-brain-setup/)（couples-navi.com）
+> **2026-08-27 に記事を精読し、この Vault に反映しました。**
+> フォルダ構成は記事のリネーム（`01_Projects` 等）を採用せず、既存の PARA + Zettelkasten を維持しています
+> （既存ノートの `[[リンク]]` を壊さないため）。取り込んだのは Git 設定・`70_Claude/`・
+> Daily notes 設定・プラグイン方針です。差分と判断の記録は
+> `40_Resources/2026-08-27-Obsidian×ClaudeCode連携セットアップ.md` にあります。
 
 ---
 

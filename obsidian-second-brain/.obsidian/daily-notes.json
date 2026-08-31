@@ -1,0 +1,6 @@
+{
+  "folder": "10_Daily",
+  "format": "YYYY-MM-DD",
+  "template": "90_Templates/デイリーノート.md",
+  "autorun": false
+}
