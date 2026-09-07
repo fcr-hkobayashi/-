@@ -1,0 +1,5 @@
+{
+  "token": "ntn_ここにNotionインテグレーションのSecretを貼る",
+  "database_id": "ここにMeeting NotesデータベースのID（URLの32桁）を貼る",
+  "_memo": "このファイルをコピーして notion_config.local.json を作り、実値を入れる。notion_config.local.json は .gitignore 済みなのでコミットされない。トークンは絶対に共有・コミットしない。"
+}
