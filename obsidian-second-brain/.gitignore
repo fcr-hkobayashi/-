@@ -14,6 +14,8 @@ _import/*
 
 # Notion 連携のトークン（絶対にコミットしない）
 tools/notion_config.local.json
+# Notion 同期の状態ファイル（毎回更新されるためコミットしない）
+15_Meetings/.notion-sync-state.json
 
 # OS/エディタの一時ファイル
 .DS_Store
