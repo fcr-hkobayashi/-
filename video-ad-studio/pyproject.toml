@@ -1,0 +1,6 @@
+[project]
+name = "video-ad-studio"
+version = "0.1.0"
+description = "縦型動画広告の自動編集パイプライン（video-use + HyperFrames）"
+requires-python = ">=3.11"
+dependencies = ["budoux>=0.7", "requests>=2.31"]

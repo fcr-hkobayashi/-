@@ -1,0 +1,16 @@
+{
+  "title": "",
+  "purpose": "TikTok・Instagramリール向けの縦型広告",
+  "target_seconds": 15,
+  "platforms": ["tiktok", "reels"],
+  "cta": "プロフィールのリンクから無料査定",
+  "cta_seconds": 3.0,
+  "hook_style_first_caption": true,
+  "transcribe_engine": "auto",
+  "min_silence": 0.25,
+  "bgm": null,
+  "bgm_volume": 0.12,
+  "sfx": { "pop": true, "kira": true, "whoosh": true, "volume": 0.45 },
+  "punch_in": 1.08,
+  "notes": "訴求したいこと・必ず残したい発言・NGなどを自由に書く（AIへの指示）"
+}

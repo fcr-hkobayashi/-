@@ -1,0 +1,5 @@
+#!/bin/bash
+# 縦型動画広告パイプラインの入口。どこからでも `ad <コマンド>` で呼べる。
+STUDIO="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+export PATH="/opt/homebrew/bin:$PATH"
+exec uv run --quiet --project "$STUDIO" python "$STUDIO/tools/ad.py" "$@"

@@ -1,0 +1,10 @@
+node_modules/
+.venv/
+projects/*/
+!projects/.gitkeep
+inbox/*
+!inbox/.gitkeep
+samples/*.mp4
+samples/*.aiff
+.env
+*.log
