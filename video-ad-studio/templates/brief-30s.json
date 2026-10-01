@@ -1,13 +1,13 @@
 {
   "title": "",
   "purpose": "TikTok・Instagramリール向けの縦型広告",
-  "target_seconds": 15,
+  "target_seconds": 30,
   "platforms": [
     "tiktok",
     "reels"
   ],
   "cta": "プロフィールのリンクから無料査定",
-  "cta_seconds": 3.0,
+  "cta_seconds": 4.0,
   "hook_style_first_caption": true,
   "transcribe_engine": "auto",
   "min_silence": 0.25,
@@ -22,9 +22,9 @@
   "punch_in": 1.08,
   "notes": "訴求したいこと・必ず残したい発言・NGなどを自由に書く（AIへの指示）",
   "structure": [
-    "0-2秒 フック（結論か意外性）",
-    "2-10秒 根拠（査定の様子・金額）",
-    "10-13秒 ベネフィット（無料・即日現金など）",
-    "最後3秒 CTA"
+    "0-2秒 フック",
+    "2-12秒 根拠（実例・金額）",
+    "12-25秒 ベネフィット（手数料無料・即日現金・出張OK）。カットは1-2秒ごと",
+    "最後4秒 CTA"
   ]
 }

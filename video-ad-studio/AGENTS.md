@@ -35,6 +35,7 @@ projects/<name>/input/ に素材 → ad all <name>
 
 ## 設定ファイル
 - `brand/brand.json` — 色・フォント・テロップ寸法・セーフゾーン・強調語・表記辞書(glossary)・NG表現
-- `projects/<name>/brief.json` — 目的・目標秒数・CTA・BGM・SE・ズーム量・メモ
+- `projects/<name>/brief.json` — 目的・目標秒数・構成の目安(structure)・CTA・BGM・SE・ズーム量・メモ
+  （`ad new --len 15|30|60` で templates/ の尺別テンプレートから作られる。カット案の見直しは structure に沿わせる）
 - `sfx/pop.*` `sfx/kira.*` `sfx/whoosh.*` を置くと自作SEの代わりに使う
 - `brand/logo.png` を置くと右上にロゴを表示

@@ -4,6 +4,7 @@
 
 ## いちばん簡単な使い方（自動）
 1. 撮った縦型素材（mp4/mov）を **`inbox/` に入れる**
+   - ファイル名に `30s`／`30秒` を入れると30秒版、`60s`／`60秒`／`1分` を入れると1分版のテンプレートになる（なければ15秒版）
 2. 自動で文字起こし → カット案が作られ、macOS の通知が来る
 3. `projects/<日付-ファイル名>/edit/cut_plan.md` を見て OK なら
    ```bash
@@ -13,7 +14,8 @@
 
 ## 手動 / AI と対話して使う
 ```bash
-ad new 0101-バッグ査定 --from ~/Desktop/clip.mov   # プロジェクト作成
+ad new 0101-バッグ査定 --from ~/Desktop/clip.mov   # プロジェクト作成（15秒版）
+ad new 0101-バッグ査定-60s --from ~/Desktop/clip.mov --len 60   # 1分版（30秒版は --len 30）
 # projects/0101-バッグ査定/brief.json に目的・CTA・目標秒数を書く
 ad all 0101-バッグ査定          # カット案で止まる → 確認
 ad approve 0101-バッグ査定
@@ -39,7 +41,8 @@ ad all 0101-バッグ査定          # カット→テロップ→書き出し�
 - `brand/brand.json` — 色・フォント・寸法・セーフゾーン・強調語・**表記辞書(glossary)**・NG表現
 - `brand/logo.png` — 置くと右上に表示
 - `sfx/pop.* kira.* whoosh.*` — 置くと自作 SE の代わりに使う（効果音ラボ等、広告利用可のもの）
-- `projects/<name>/brief.json` — 目標秒数、CTA、BGM（`"bgm": "bgm.mp3"`）、ズーム量など
+- `projects/<name>/brief.json` — 目標秒数、構成の目安、CTA、BGM（`"bgm": "bgm.mp3"`）、ズーム量など
+- `templates/brief.json`（15秒）/ `brief-30s.json` / `brief-60s.json` — `ad new --len` で使う尺別の初期値
 
 ## ElevenLabs（任意・推奨）
 日本語の精度を上げたい場合は、ElevenLabs の有料プランの API キーを自分で設定する:

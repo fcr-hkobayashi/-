@@ -17,9 +17,12 @@ for f in "$STUDIO"/inbox/*.{mp4,mov,m4v,mkv,webm}; do
   [ "$s1" = "$s2" ] || continue
   base="$(basename "${f%.*}" | tr ' /' '__')"
   name="$(date +%Y%m%d)-${base}"
+  # ファイル名に 60s / 1分 / 30s が入っていれば、その尺のテンプレートを使う
+  len=15
+  case "$base" in *60s*|*1分*|*60秒*) len=60 ;; *30s*|*30秒*) len=30 ;; esac
   {
     echo "=== $(date '+%F %T') $f → $name"
-    "$STUDIO/bin/ad" new "$name" --from "$f" --move &&
+    "$STUDIO/bin/ad" new "$name" --from "$f" --move --len "$len" &&
     "$STUDIO/bin/ad" transcribe "$name" &&
     "$STUDIO/bin/ad" plan "$name" >/dev/null &&
     notify "$name" "カット案ができました。edit/cut_plan.md を確認して承認してください" ||

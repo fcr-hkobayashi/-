@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """縦型動画広告の自動編集パイプライン。
 
-  ad new <name> [--from FILE ...]   プロジェクト作成（素材を input/ へ）
+  ad new <name> [--from FILE ...] [--len 15|30|60]
+                                    プロジェクト作成（素材を input/ へ、尺別テンプレート）
   ad transcribe <name>              文字起こし（Scribe → なければローカル Whisper）
   ad plan <name>                    無音・フィラー・言い直しのカット案を作る
   ad approve <name>                 カット案を承認（edit/edl.json を手で直してからでもよい）
@@ -114,9 +115,11 @@ def cmd_new(a) -> None:
     for sub in ("input", "broll", "edit", "output"):
         (d / sub).mkdir(parents=True, exist_ok=True)
     if not (d / "brief.json").exists():
-        brief = load_json(STUDIO / "templates/brief.json")
+        tpl = STUDIO / "templates" / ("brief.json" if a.length == 15 else f"brief-{a.length}s.json")
+        brief = load_json(tpl)
         brief["title"] = a.name
         save_json(d / "brief.json", brief)
+        log(f"{a.length}秒版のテンプレートを使用: {tpl.name}")
     for f in a.from_files or []:
         src = Path(f).expanduser()
         dst = d / "input" / src.name
@@ -135,7 +138,7 @@ def scribe_key_available() -> bool:
 
 def whisper_prompt() -> str:
     b = brand()
-    terms = [b["name"], *sorted(set(b["glossary"].values())), "査定", "買取"]
+    terms = list(dict.fromkeys([b["name"], *sorted(set(b["glossary"].values())), "査定", "買取"]))
     return "、".join(terms) + "。"
 
 
@@ -358,6 +361,7 @@ def cmd_plan(a) -> None:
     lines = [f"# カット案: {p.name}", "",
              f"- 推定尺: **{total:.1f} 秒**（目標 {target} 秒）"
              + ("  ⚠️ 目標超過。下の ✅ から削る行を選んでください" if total > target * 1.1 else ""),
+             *( [f"- 構成の目安: " + " → ".join(p.brief["structure"])] if p.brief.get("structure") else []),
              f"- 無音しきい値: {brief_min_gap}s / パディング 前{int(pre*1000)}ms・後{int(post*1000)}ms（＋波形で発話の頭・お尻にスナップ）",
              "", "| | 時間 | 発話 | 判定理由 |", "|---|---|---|---|"]
     for it in items:
@@ -859,6 +863,8 @@ def main() -> None:
     sp = ap.add_subparsers(dest="cmd", required=True)
     s = sp.add_parser("new"); s.add_argument("name"); s.add_argument("--from", dest="from_files", nargs="*")
     s.add_argument("--move", action="store_true", help="コピーではなく移動")
+    s.add_argument("--len", dest="length", type=int, choices=[15, 30, 60], default=15,
+                   help="尺のテンプレート（templates/brief[-30s|-60s].json）")
     s = sp.add_parser("transcribe"); s.add_argument("name"); s.add_argument("--engine", choices=["auto", "scribe", "whisper"])
     s.add_argument("--force", action="store_true")
     s = sp.add_parser("plan"); s.add_argument("name")

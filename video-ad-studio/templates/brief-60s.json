@@ -1,0 +1,31 @@
+{
+  "title": "",
+  "purpose": "オーガニック投稿・リール向けの1分動画（広告に使う場合は15秒版とABテスト）",
+  "target_seconds": 60,
+  "platforms": [
+    "tiktok",
+    "reels"
+  ],
+  "cta": "プロフィールのリンクから無料査定",
+  "cta_seconds": 5.0,
+  "hook_style_first_caption": true,
+  "transcribe_engine": "auto",
+  "min_silence": 0.3,
+  "bgm": null,
+  "bgm_volume": 0.1,
+  "sfx": {
+    "pop": true,
+    "kira": true,
+    "whoosh": true,
+    "volume": 0.38
+  },
+  "punch_in": 1.06,
+  "notes": "1分は単調になりやすい。broll/ に査定シーン・商品の寄りを置き、Codex に差し込みを依頼する。BGM を推奨（bgm に広告利用可の音源を指定）。訴求したいこと・必ず残したい発言・NGもここに書く",
+  "structure": [
+    "0-3秒 フック（結論か意外性）",
+    "3-15秒 査定実例1（金額を見せる）",
+    "15-30秒 実例2、または「なぜ高く買えるか」＋再フック（「さらに…」）",
+    "30-45秒 安心材料（手数料無料・即日現金・出張）＋再フック",
+    "45-60秒 まとめ＋CTA（最後5秒）"
+  ]
+}
