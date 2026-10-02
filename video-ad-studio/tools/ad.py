@@ -11,6 +11,7 @@
   ad render <name> [--draft]        レンダリング → ラウドネス調整 → output/
   ad qa <name>                      書き出し後の自己チェック（output/qa_report.md）
   ad all <name> [--yes]             上をまとめて実行（未承認ならカット案で止まる）
+  ad story <name> [--draft]         ナレーション＋Bロール型（shots.json から。完成イメージの基準の型）
 
 素材の置き場: projects/<name>/input/   設定: brand/brand.json, projects/<name>/brief.json
 """
@@ -875,7 +876,12 @@ def main() -> None:
     s = sp.add_parser("qa"); s.add_argument("name"); s.add_argument("--file")
     s = sp.add_parser("all"); s.add_argument("name"); s.add_argument("--yes", action="store_true", help="カット案を自動承認")
     s.add_argument("--draft", action="store_true"); s.add_argument("--replan", action="store_true")
+    s = sp.add_parser("story", help="ナレーション＋Bロール型（shots.json から）"); s.add_argument("name")
+    s.add_argument("--draft", action="store_true")
     a = ap.parse_args()
+    if a.cmd == "story":
+        import story
+        return story.cmd_story(a)
     {"new": cmd_new, "transcribe": cmd_transcribe, "plan": cmd_plan, "approve": cmd_approve, "cut": cmd_cut,
      "compose": cmd_compose, "render": cmd_render, "qa": cmd_qa, "all": cmd_all}[a.cmd](a)
 
