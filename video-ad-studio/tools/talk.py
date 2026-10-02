@@ -12,6 +12,7 @@ edit.json の segments（元動画の使用区間）を順につなぐ。
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -74,32 +75,88 @@ def sdr_clip(src: Path, a: float, dur: float, cache: Path) -> Path:
     return out
 
 
-def bg_filter(bg: dict) -> str:
-    """背景を縦長キャンバスいっぱいに。crop_top で上部（透かし等）を落とし、軽くぼかして被写界深度を出す。"""
+def bg_filter(bg: dict, bg_size: tuple[int, int]) -> str:
+    """背景を縦長キャンバスに配置。fit=natural は拡大せずに下端合わせ（物の大きさを実寸に近く保つ）。
+    blur=0 ならぼかさない。crop_top で上部（透かし等）を落とす。"""
+    blur = bg.get("blur", 2.5)
+    tail = (f",gblur=sigma={blur}" if blur else "") + f",eq=brightness={bg.get('brightness', 0.02)}:saturation=1.03[bg];"
+    if bg.get("fit") == "natural":
+        import math
+        w, h = bg_size
+        sc = max(SW / w, SH / h) + 0.002
+        sw, sh = math.ceil(w * sc), math.ceil(h * sc)
+        x = int(min(max(bg.get("vx", 0.5) * sw - SW / 2, 0), sw - SW))
+        return f"[1:v]scale={sw}:{sh}:flags=lanczos,crop={SW}:{SH}:{x}:{sh - SH}" + tail
     ct = bg.get("crop_top", 0.0)
     return (f"[1:v]crop=iw:ih*{1 - ct:.3f}:0:ih*{ct:.3f},scale={SW}:{SH}:force_original_aspect_ratio=increase,"
-            f"crop={SW}:{SH},gblur=sigma={bg.get('blur', 2.5)},eq=brightness={bg.get('brightness', 0.02)}:saturation=1.05[bg];")
+            f"crop={SW}:{SH}" + tail)
+
+
+def head_pos(clip: Path, at_end: bool, green: str) -> tuple[float, float]:
+    """クロマキーの切り抜きから頭頂の高さと頭の左右中心を測る（画面に対する割合）。"""
+    w, h = 270, 480
+    seek = ["-sseof", "-0.12"] if at_end else ["-ss", "0.05"]
+    raw = subprocess.run(["ffmpeg", "-v", "error", *seek, "-i", str(clip), "-frames:v", "1", "-vf",
+                          f"scale={w}:{h},format=yuva444p,chromakey=color={green}:similarity=0.08:blend=0.04,alphaextract",
+                          "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+    rows = [[x for x in range(w) if raw[y * w + x] > 128] for y in range(h)]
+    top = next(y for y in range(h) if len(rows[y]) > 8)
+    band = [x for y in range(top, min(h, top + 60)) for x in rows[y]]
+    return top / h, sum(band) / len(band) / w
+
+
+def align_offsets(sdrs: list[Path], green: str, pull: float = 0.1, ylim: float = 0.02,
+                  xlim: float = 0.075) -> list[tuple[float, float]]:
+    """カクカク対策：各カットの頭の位置を、直前のカットの終わりの位置にそろえるずらし量（画面に対する割合）。
+    ずれが積み重ならないよう、全体の中央値へ pull の割合で引き戻す。
+    上下は机のずれが目立たないよう ±ylim まで、左右は人物の映像のはみ出し幅（±xlim）まで。"""
+    import statistics
+    st = [head_pos(f, False, green) for f in sdrs]
+    en = [head_pos(f, True, green) for f in sdrs]
+    my = statistics.median((a[0] + b[0]) / 2 for a, b in zip(st, en))
+    mx = statistics.median((a[1] + b[1]) / 2 for a, b in zip(st, en))
+    offs: list[tuple[float, float]] = []
+    for i in range(len(sdrs)):
+        mean_y, mean_x = (st[i][0] + en[i][0]) / 2, (st[i][1] + en[i][1]) / 2
+        if i == 0:
+            oy, ox = my - mean_y, mx - mean_x
+        else:
+            ty, tx = en[i - 1][0] + offs[-1][0], en[i - 1][1] + offs[-1][1]
+            oy = (1 - pull) * (ty - st[i][0]) + pull * (my - mean_y)
+            ox = (1 - pull) * (tx - st[i][1]) + pull * (mx - mean_x)
+        offs.append((max(-ylim, min(ylim, oy)), max(-xlim, min(xlim, ox))))
+    return offs
 
 
 def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict]:
     src = p.dir / spec["video"]
+    green = spec.get("green", "0x78B23A")
     cache = p.edit / "talk_sdr"
     cache.mkdir(exist_ok=True)
     fw, fh = int(SW * FG_SCALE) // 2 * 2, int(SH * FG_SCALE) // 2 * 2
     fx, fy = (SW - fw) // 2, int(HEAD_Y * SH - SRC_HEAD_Y * fh)
+    bg_file = p.dir / bg["file"]
+    bg_size = tuple(int(v) for v in subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(bg_file)],
+        capture_output=True, text=True).stdout.strip().split(","))
+    durs = [frames(b - a) for a, b in (s["v"] for s in spec["segments"])]
+    sdrs = [sdr_clip(src, s["v"][0], d, cache) for s, d in zip(spec["segments"], durs)]
+    offs = align_offsets(sdrs, green) if spec.get("align", True) else [(0.0, 0.0)] * len(sdrs)
+    ad.save_json(work / "align.json", [{"dy": round(a, 4), "dx": round(b, 4)} for a, b in offs])
     segs, t = [], 0.0
     for i, s in enumerate(spec["segments"]):
-        a, b = s["v"]
-        dur = frames(b - a)
+        dur, sdr = durs[i], sdrs[i]
+        dy, dx = offs[i]
+        ox = int(max(-(fw - SW) // 2 + 2, min((fw - SW) // 2 - 2, dx * fw)))
+        oy = int(dy * fh)
         out = work / f"seg_{i:02d}.mp4"
         if not out.exists() or abs(ad.ffprobe_duration(out) - dur) > 0.05:
-            sdr = sdr_clip(src, a, dur, cache)
-            fc = (bg_filter(bg) +
+            fc = (bg_filter(bg, bg_size) +
                   f"[0:v]fps={FPS},scale={fw}:{fh},format=yuva444p,"
-                  f"chromakey=color={spec.get('green', '0x78B23A')}:similarity=0.08:blend=0.04,"
+                  f"chromakey=color={green}:similarity=0.08:blend=0.04,"
                   f"despill=type=green:mix=0.6:expand=0.1,"
-                  f"eq=brightness=0.05:contrast=1.04:saturation=1.06,colorbalance=rm=0.02:bm=-0.01[fg];"
-                  f"[bg][fg]overlay={fx}:{fy}:shortest=1,format=yuv420p[v]")
+                  f"eq=brightness=0.05:contrast=1.04:saturation=1.04,colorbalance=rm=0.02:bm=-0.01[fg];"
+                  f"[bg][fg]overlay={fx + ox}:{fy + oy}:shortest=1,format=yuv420p[v]")
             last = i == len(spec["segments"]) - 1
             fade = f"afade=t=in:d=0.03,afade=t=out:st={max(0, dur - (0.4 if last else 0.04)):.3f}:d={0.4 if last else 0.04}"
             if s["who"] == "satsuei":  # 撮影者の声は後で入れる → 無音の余白
@@ -107,7 +164,7 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
                 aflt = ["-map", "2:a"]
             else:
                 amap, aflt = [], ["-map", "0:a:0", "-af", fade]
-            ad.run(["ffmpeg", "-y", "-v", "error", "-i", sdr, "-loop", "1", "-i", p.dir / bg["file"], *amap,
+            ad.run(["ffmpeg", "-y", "-v", "error", "-i", sdr, "-loop", "1", "-i", bg_file, *amap,
                     "-filter_complex", fc, "-map", "[v]", *aflt, "-t", f"{dur:.4f}",
                     "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-g", str(FPS),
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", out])
@@ -141,8 +198,9 @@ def caption_parts(segs: list[dict], words: list[dict]) -> None:
         s["parts"] = out
 
 
-def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Path) -> None:
-    hf = p.hf
+def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Path,
+            hf: Path | None = None, media_start: float = 0.0) -> None:
+    hf = hf or p.hf
     if hf.exists():
         shutil.rmtree(hf)
     (hf / "fonts").mkdir(parents=True)
@@ -160,7 +218,7 @@ def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Pa
         sty, ls, le = s.get("style", "normal"), s["at"], round(s["at"] + s["len"], 3)
         if "punch" in s:  # パワーワードの瞬間だけ顔に向かってグッと寄り、区間の終わりで戻す
             pt = s["parts"][min(s["punch"], len(s["parts"]) - 1)]["start"]
-            js.append(f'tl.fromTo("#base",{{scale:1}},{{scale:1.2,duration:0.12,ease:"power3.out"}},{pt:.3f});')
+            js.append(f'tl.fromTo("#base",{{scale:1}},{{scale:1.2,duration:0.3,ease:"power2.out"}},{pt:.3f});')
             js.append(f'tl.set("#base",{{scale:1}},{le:.3f});')
         if sty == "mono":
             js.append(f'tl.set("#base",{{filter:"grayscale(1) contrast(1.08)"}},{ls:.3f});')
@@ -254,8 +312,8 @@ html, body {{ width: {W}px; height: {H}px; overflow: hidden; background: #000; }
 </head>
 <body>
 <div id="root" data-composition-id="main" data-start="0" data-duration="{total:.3f}" data-width="{W}" data-height="{H}">
-<video id="base" src="base.mp4" muted playsinline data-start="0" data-duration="{total:.3f}" data-track-index="0"></video>
-<audio id="voice" src="voice.m4a" data-start="0" data-duration="{total:.3f}" data-volume="1" data-track-index="1"></audio>
+<video id="base" src="base.mp4" muted playsinline data-start="0" data-duration="{total:.3f}" data-media-start="{media_start:.3f}" data-track-index="0"></video>
+<audio id="voice" src="voice.m4a" data-start="0" data-duration="{total:.3f}" data-media-start="{media_start:.3f}" data-volume="1" data-track-index="1"></audio>
 {chr(10).join(els)}
 </div>
 <script>
@@ -268,7 +326,58 @@ tl.seek(0);
 </html>
 """
     (hf / "index.html").write_text(html, encoding="utf-8")
-    ad.save_json(p.edit / "captions.json", caps)
+    if media_start == 0.0:
+        ad.save_json(p.edit / "captions.json", caps)
+
+
+def split_parts(segs: list[dict], max_len: float = 20.0) -> list[list[dict]]:
+    """書き出しを分割する単位：カットの境目で、1パート max_len 秒以下に分ける。"""
+    parts, cur, cur_len = [], [], 0.0
+    for s in segs:
+        if cur and cur_len + s["len"] > max_len:
+            parts.append(cur)
+            cur, cur_len = [], 0.0
+        cur.append(s)
+        cur_len += s["len"]
+    if cur:
+        parts.append(cur)
+    return parts
+
+
+def shifted(seg: dict, t0: float) -> dict:
+    out = {**seg, "at": round(seg["at"] - t0, 4)}
+    out["parts"] = [{**x, "start": round(x["start"] - t0, 3), "end": round(x["end"] - t0, 3)} for x in seg["parts"]]
+    return out
+
+
+def render_parts(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Path, work: Path,
+                 draft: bool) -> Path:
+    """8GB 環境ではおよそ1500フレームを超えると書き出しが止まるため、約20秒ずつ書き出してつなぐ。
+    音声はつなぎ目でプツッとしないよう、最後に元の音声トラックをまるごと載せ直す。"""
+    env = {**os.environ, "PRODUCER_BROWSER_GPU_MODE": os.environ.get("PRODUCER_BROWSER_GPU_MODE", "hardware")}
+    outs = []
+    for k, chunk in enumerate(split_parts(segs)):
+        t0 = chunk[0]["at"]
+        dur = round(sum(x["len"] for x in chunk), 4)
+        hf = work / f"hf_part{k}"
+        compose(p, [shifted(x, t0) for x in chunk], dur, base, audio, hf=hf, media_start=t0)
+        out = work / f"part{k}.mp4"
+        for attempt in range(4):
+            r = subprocess.run([str(c) for c in [ad.HF_BIN, "render", hf, "-o", out, "--fps", FPS,
+                                                  "-q", "draft" if draft else "delivery"]], env=env)
+            if r.returncode == 0:
+                break
+            subprocess.run(["pkill", "-f", "chrome-headless-shell"])
+            ad.log(f"パート{k + 1}の書き出しが止まったのでやり直します")
+        else:
+            sys.exit(f"パート{k + 1}の書き出しに失敗しました")
+        ad.log(f"パート{k + 1} 完了（{t0:.1f}〜{t0 + dur:.1f}秒）")
+        outs.append(out)
+    (work / "parts.txt").write_text("".join(f"file '{o.name}'\n" for o in outs))
+    raw = work / "render_raw.mp4"
+    ad.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", work / "parts.txt", "-i", audio,
+            "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}", raw])
+    return raw
 
 
 def cmd_talk(a) -> None:
@@ -297,20 +406,21 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
     joined = work / "joined.mp4"
     ad.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", work / "list.txt", "-c", "copy", joined])
     base = work / "base.mp4"
-    ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vf", "tpad=stop_mode=clone:stop_duration=1",
+    # 8GB 環境の書き出し安定のため、ベース映像は 1080×1920・30fps・標準色域に（ズーム時は少しだけ甘くなる）
+    ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vf",
+            f"fps={FPS},scale={W}:{H}:flags=lanczos:in_range=full:out_range=tv,format=yuv420p,"
+            "tpad=stop_mode=clone:stop_duration=1",
             "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-g", str(FPS), "-keyint_min", str(FPS),
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", base])
     audio = work / "voice.m4a"
     ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vn", "-c:a", "aac", "-b:a", "192k", audio])
     caption_parts(segs, words)
     ad.save_json(work / "timeline.json", [{k: (str(v) if isinstance(v, Path) else v) for k, v in s.items()} for s in segs])
-    compose(p, segs, total, base, audio)
+    compose(p, segs, total, base, audio)  # 全体版（プレビュー・テロップ一覧用）
     lint = subprocess.run([ad.HF_BIN, "lint", str(p.hf)], capture_output=True, text=True)
     print((lint.stdout or lint.stderr).strip().splitlines()[-1])
-    ad.cmd_render(argparse.Namespace(name=a.name, draft=a.draft))
-    made = Path(p.state["rendered"])
-    final = made.with_name(made.name.replace(p.name, f"{p.name}_{key}"))
-    made.replace(final)
+    raw = render_parts(p, segs, total, base, audio, work, a.draft)
+    final = ad.loudnorm_to_output(p, raw, suffix=f"_{key}" + ("_draft" if a.draft else ""))
     p.set_state(rendered=str(final))
     ad.log(f"→ {final.relative_to(ad.STUDIO)}")
 

@@ -727,12 +727,39 @@ tl.seek(0);
 
 
 # ---------------------------------------------------------------- render
+def loudnorm_to_output(p: "Project", raw: Path, suffix: str = "") -> Path:
+    """2パス loudnorm（-14 LUFS / TP -1.5）で SNS 向けに音量をそろえて output/ に書き出す。"""
+    p.output.mkdir(exist_ok=True)
+    m = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(raw), "-af",
+                        "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True).stderr
+    st = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
+    af = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={st['input_i']}:measured_TP={st['input_tp']}:"
+          f"measured_LRA={st['input_lra']}:measured_thresh={st['input_thresh']}:offset={st['target_offset']}:linear=true")
+    secs = int(round(ffprobe_duration(raw)))
+    final = p.output / f"{p.name}{suffix}_{secs}s.mp4"
+    run(["ffmpeg", "-y", "-v", "error", "-i", raw, "-c:v", "copy", "-af", af, "-ar", "48000",
+         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", final])
+    return final
+
+
 def cmd_render(a) -> None:
     p = Project(a.name)
     p.output.mkdir(exist_ok=True)
     raw = p.edit / "render_raw.mp4"
     env = {**os.environ, "PRODUCER_BROWSER_GPU_MODE": os.environ.get("PRODUCER_BROWSER_GPU_MODE", "hardware")}
-    run([HF_BIN, "render", p.hf, "-o", raw, "--fps", FPS, "-q", "draft" if a.draft else "delivery"], env=env)
+    # 8GB 環境ではメモリ不足で書き出しが途中で止まる（stalled）ことがある。
+    # 分割キャプチャ（HF_SEGMENTED_CAPTURE）にして、止まったら済んだ区間から再開（--resume）する。
+    env["HF_SEGMENTED_CAPTURE"] = "true"
+    for attempt in range(5):
+        cmd = [HF_BIN, "render", p.hf, "-o", raw, "--fps", FPS, "-q", "draft" if a.draft else "delivery"]
+        r = subprocess.run([str(c) for c in cmd + (["--resume"] if attempt else [])], env=env)
+        if r.returncode == 0:
+            break
+        subprocess.run(["pkill", "-f", "chrome-headless-shell"])
+        log(f"書き出しが止まったので、済んだ区間から再開します（{attempt + 2}回目）")
+    else:
+        sys.exit("書き出しに5回失敗しました")
     # 2パス loudnorm（-14 LUFS / TP -1）で SNS 向けに音量をそろえる
     m = subprocess.run(["ffmpeg", "-hide_banner", "-i", raw, "-af",
                         "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
