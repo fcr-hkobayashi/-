@@ -11,7 +11,8 @@
   ad render <name> [--draft]        レンダリング → ラウドネス調整 → output/
   ad qa <name>                      書き出し後の自己チェック（output/qa_report.md）
   ad all <name> [--yes]             上をまとめて実行（未承認ならカット案で止まる）
-  ad story <name> [--draft]         ナレーション＋Bロール型（shots.json から。完成イメージの基準の型）
+  ad story <name> [--draft]         ナレーション＋Bロール型（shots.json から。基準の型1）
+  ad live <name> [--draft]          本人語り型（live.json から。グリーンバック実写＋後撮り音声。基準の型2）
 
 素材の置き場: projects/<name>/input/   設定: brand/brand.json, projects/<name>/brief.json
 """
@@ -878,7 +879,12 @@ def main() -> None:
     s.add_argument("--draft", action="store_true"); s.add_argument("--replan", action="store_true")
     s = sp.add_parser("story", help="ナレーション＋Bロール型（shots.json から）"); s.add_argument("name")
     s.add_argument("--draft", action="store_true")
+    s = sp.add_parser("live", help="本人語り型（live.json から。グリーンバック実写＋後撮り音声）"); s.add_argument("name")
+    s.add_argument("--draft", action="store_true"); s.add_argument("--reuse-video", action="store_true")
     a = ap.parse_args()
+    if a.cmd == "live":
+        import live
+        return live.cmd_live(a)
     if a.cmd == "story":
         import story
         return story.cmd_story(a)
