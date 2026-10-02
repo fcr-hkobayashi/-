@@ -8,3 +8,4 @@ samples/*.mp4
 samples/*.aiff
 .env
 *.log
+references/*.mp4

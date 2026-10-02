@@ -5,6 +5,11 @@ description: みらいや（買取店）の縦型動画広告（TikTok・Instagr
 
 # kaitori-ad-style — みらいや縦型広告の型
 
+> **完成イメージの基準（2026-10-02 ユーザー指定）**: 「動画を編集して」と言われたら、
+> `~/second-brain-repo/video-ad-studio/references/REFERENCE_STYLE.md` の型
+> （ナレーション＋Bロール約2秒切り替え・中央テロップ・BGM常時・黒画面カード・打消し表示・LP操作で締める、約50秒）
+> をデフォルトの完成形とする。必ず最初に読むこと。別の型を指定されたときだけ以下の短尺の型を使う。
+
 実作業は `~/second-brain-repo/video-ad-studio` の `ad` コマンドで行う（詳細は同フォルダの AGENTS.md）。
 このスキルは「何を良しとするか」の基準。
 
