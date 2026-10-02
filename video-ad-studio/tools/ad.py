@@ -12,6 +12,7 @@
   ad qa <name>                      書き出し後の自己チェック（output/qa_report.md）
   ad all <name> [--yes]             上をまとめて実行（未承認ならカット案で止まる）
   ad story <name> [--draft]         ナレーション＋Bロール型（shots.json から。基準の型1）
+  ad talk <name> [--draft]          対話・本人語り型（edit.json から。元音声を使い、撮影者の声は余白＋テロップ）
   ad live <name> [--draft]          本人語り型（live.json から。グリーンバック実写＋後撮り音声。基準の型2）
 
 素材の置き場: projects/<name>/input/   設定: brand/brand.json, projects/<name>/brief.json
@@ -881,7 +882,12 @@ def main() -> None:
     s.add_argument("--draft", action="store_true")
     s = sp.add_parser("live", help="本人語り型（live.json から。グリーンバック実写＋後撮り音声）"); s.add_argument("name")
     s.add_argument("--draft", action="store_true"); s.add_argument("--reuse-video", action="store_true")
+    s = sp.add_parser("talk", help="対話・本人語り型（edit.json から。元音声＋撮影者の余白）"); s.add_argument("name")
+    s.add_argument("--draft", action="store_true"); s.add_argument("--bg", default="all", help="背景のキー（all で全部）")
     a = ap.parse_args()
+    if a.cmd == "talk":
+        import talk
+        return talk.cmd_talk(a)
     if a.cmd == "live":
         import live
         return live.cmd_live(a)
