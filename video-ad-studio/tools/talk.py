@@ -128,6 +128,56 @@ def align_offsets(sdrs: list[Path], green: str, pull: float = 0.1, ylim: float =
     return offs
 
 
+def gray_frames(clip: Path, last: bool = False):
+    """解析用に 270×480 のグレースケールで全コマ（last=True なら末尾付近だけ）を読む。"""
+    import numpy as np
+    w, h = 270, 480
+    seek = ["-sseof", "-0.2"] if last else []
+    raw = subprocess.run(["ffmpeg", "-v", "error", *seek, "-i", str(clip), "-vf", f"fps={FPS},scale={w}:{h}",
+                          "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+    return np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.float32)
+
+
+def track_motion(clip: Path, ref) -> list[tuple[float, float]]:
+    """手ぶれ補正用：机とPC（画面下側。動かないもの）の位置を、基準コマとの位相相関でコマごとに測る。
+    戻り値は「基準に重ねるために動かす量」（画面に対する割合・下/右が正）。5コマの移動平均でならす。"""
+    import numpy as np
+    h, w = ref.shape
+    y0, y1 = int(h * 0.5), int(h * 0.92)
+    win = np.outer(np.hanning(y1 - y0), np.hanning(w))
+    def prep(fr):
+        r = fr[y0:y1]
+        return np.fft.fft2((r - r.mean()) * win)
+    R = prep(ref)
+    out = []
+    for fr in gray_frames(clip):
+        X = R * np.conj(prep(fr))
+        c = np.fft.ifft2(X / (np.abs(X) + 1e-6)).real
+        y, x = np.unravel_index(np.argmax(c), c.shape)
+        def sub(l, m, r):
+            return (l - r) / (2 * (l - 2 * m + r) + 1e-9)
+        dy = y + sub(c[y - 1, x], c[y, x], c[(y + 1) % c.shape[0], x])
+        dx = x + sub(c[y, x - 1], c[y, x], c[y, (x + 1) % c.shape[1]])
+        dy -= c.shape[0] if dy > c.shape[0] / 2 else 0
+        dx -= c.shape[1] if dx > c.shape[1] / 2 else 0
+        out.append((dy / h, dx / w))
+    a = np.array(out)
+    k = 5
+    pad = np.pad(a, ((k // 2, k // 2), (0, 0)), mode="edge")
+    sm = np.stack([np.convolve(pad[:, j], np.ones(k) / k, mode="valid") for j in range(2)], axis=1)
+    return [tuple(v) for v in sm]
+
+
+def per_frame(base: int, vals: list[int]) -> str:
+    """コマ番号 n ごとの値を overlay の式に（段差の足し合わせ。入れ子にしないので長くても通る）。"""
+    terms, prev = [str(base + vals[0])], vals[0]
+    for n, v in enumerate(vals[1:], 1):
+        if v != prev:
+            terms.append(f"{v - prev:+d}*gte(n,{n})")
+            prev = v
+    return "".join(terms)
+
+
 SATSUEI_CHAIN = ("highpass=f=90,afftdn=nr=10:nf=-55,equalizer=f=250:t=q:w=1.2:g=-2,"
                  "equalizer=f=3200:t=q:w=1:g=2,acompressor=threshold=-22dB:ratio=3:attack=8:release=160,"
                  "aecho=0.85:0.5:22|41:0.10|0.06")  # カメラの後ろにいる距離感を少しだけ足す
@@ -160,21 +210,52 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
     sdrs = [sdr_clip(p.dir / s["video"] if s.get("video") else src, s["v"][0], d, cache)
             for s, d in zip(spec["segments"], durs)]
     offs = align_offsets(sdrs, green) if spec.get("align", True) else [(0.0, 0.0)] * len(sdrs)
+    # なめらか化（smooth.from 以降）：手ぶれ補正で机とPCを元の撮影の位置に固定する。
+    # 机ごと動かす頭合わせは使わず、カットのつなぎ目はディゾルブ（render_one）でならす
+    sm = spec.get("smooth") or {}
+    k0 = sm.get("from", len(sdrs))
+    hx = (fw - SW) // 2 - 2
+    stab: dict[int, list[tuple[int, int]]] = {}
+    if sm.get("stabilize") and k0 < len(sdrs):
+        import statistics
+        ref = gray_frames(sdrs[k0 - 1], last=True)[-1]
+        tr = {i: track_motion(sdrs[i], ref) for i in range(k0, len(sdrs))}
+        # 直前のカット（元の撮影）の頭合わせのずらし量も足して、つなぎ目で机が跳ねないように。
+        # 左右は人物の映像のはみ出し幅に収まる範囲でだけ合わせる
+        lim = hx / fw
+        xs = [v[1] for t_ in tr.values() for v in t_]
+        cx = max(-lim - min(xs), min(lim - max(xs), offs[k0 - 1][1])) if max(xs) - min(xs) < 2 * lim \
+            else -statistics.median(xs)
+        cy = offs[k0 - 1][0]
+        for i, t_ in tr.items():
+            stab[i] = [(int((dy + cy) * fh), int(max(-hx, min(hx, (dx + cx) * fw)))) for dy, dx in t_]
+            offs[i] = (0.0, 0.0)
+        ad.save_json(work / "stab.json", {str(i): v for i, v in stab.items()})
     ad.save_json(work / "align.json", [{"dy": round(a, 4), "dx": round(b, 4)} for a, b in offs])
+
+    def video_fc(i: int, n0: int = 0) -> str:
+        dy, dx = offs[i]
+        ox = int(max(-hx, min(hx, dx * fw)))
+        oy = int(dy * fh)
+        if i in stab:
+            tr_ = stab[i][n0:] or stab[i][-1:]
+            pos = f"x='{per_frame(fx, [v[1] for v in tr_])}':y='{per_frame(fy, [v[0] for v in tr_])}':eval=frame"
+        else:
+            pos = f"{fx + ox}:{fy + oy}"
+        return (bg_filter(bg, bg_size) +
+                f"[0:v]fps={FPS},scale={fw}:{fh},format=yuva444p,"
+                f"chromakey=color={green}:similarity=0.08:blend=0.04,"
+                f"despill=type=green:mix=0.6:expand=0.1,"
+                f"eq=brightness=0.05:contrast=1.04:saturation=1.04,colorbalance=rm=0.02:bm=-0.01[fg];"
+                f"[bg][fg]overlay={pos}:shortest=1,format=yuv420p[v]")
+
+    xf = int(sm.get("xfade", 0))
     segs, t = [], 0.0
     for i, s in enumerate(spec["segments"]):
         dur, sdr = durs[i], sdrs[i]
-        dy, dx = offs[i]
-        ox = int(max(-(fw - SW) // 2 + 2, min((fw - SW) // 2 - 2, dx * fw)))
-        oy = int(dy * fh)
         out = work / f"seg_{i:02d}.mp4"
-        if not out.exists() or abs(ad.ffprobe_duration(out) - dur) > 0.05:
-            fc = (bg_filter(bg, bg_size) +
-                  f"[0:v]fps={FPS},scale={fw}:{fh},format=yuva444p,"
-                  f"chromakey=color={green}:similarity=0.08:blend=0.04,"
-                  f"despill=type=green:mix=0.6:expand=0.1,"
-                  f"eq=brightness=0.05:contrast=1.04:saturation=1.04,colorbalance=rm=0.02:bm=-0.01[fg];"
-                  f"[bg][fg]overlay={fx + ox}:{fy + oy}:shortest=1,format=yuv420p[v]")
+        if i in stab or not out.exists() or abs(ad.ffprobe_duration(out) - dur) > 0.05:
+            fc = video_fc(i)
             last = i == len(spec["segments"]) - 1
             fade = f"afade=t=in:d=0.03,afade=t=out:st={max(0, dur - (0.4 if last else 0.04)):.3f}:d={0.4 if last else 0.04}"
             if s["who"] == "satsuei" and s.get("audio"):  # 後撮りした撮影者の声を、少し間を空けて置く
@@ -192,7 +273,15 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
                     "-filter_complex", fc, "-map", "[v]", *aflt, "-t", f"{dur:.4f}",
                     "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-g", str(FPS),
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", out])
-        segs.append({**s, "i": i, "at": round(t, 4), "len": dur, "file": out})
+        seg = {**s, "i": i, "at": round(t, 4), "len": dur, "file": out}
+        if xf and k0 <= i + 1 < len(spec["segments"]):  # 次のカットへ重ねる分：この区間の続き xf コマ
+            tail = work / f"tail_{i:02d}.mp4"
+            n0 = round(dur * FPS)
+            ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{dur:.4f}", "-i", sdr, "-loop", "1", "-i", bg_file,
+                    "-filter_complex", video_fc(i, n0), "-map", "[v]", "-frames:v", str(xf), "-an",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "17", tail])
+            seg["tail"] = tail
+        segs.append(seg)
         t += dur
     return segs
 
@@ -436,10 +525,18 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
     joined = work / "joined.mp4"
     ad.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", work / "list.txt", "-c", "copy", joined])
     base = work / "base.mp4"
+    # カットのディゾルブ：前の区間の続き（tail）を、次の区間の頭に重ねて xf コマで消していく。尺と音はそのまま
+    tails = [(s["tail"], segs[k + 1]["at"]) for k, s in enumerate(segs) if s.get("tail")]
+    vin, fc = ["-i", joined], "[0:v]null[m0];"
+    for k, (tf, at) in enumerate(tails):
+        n = ad.ffprobe_duration(tf)
+        vin += ["-i", tf]
+        fc += (f"[{k + 1}:v]format=yuva444p,fade=t=out:st=0:d={n:.4f}:alpha=1,setpts=PTS+{at:.4f}/TB[t{k}];"
+               f"[m{k}][t{k}]overlay=eof_action=pass[m{k + 1}];")
     # 8GB 環境の書き出し安定のため、ベース映像は 1080×1920・30fps・標準色域に（ズーム時は少しだけ甘くなる）
-    ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vf",
-            f"fps={FPS},scale={W}:{H}:flags=lanczos:in_range=full:out_range=tv,format=yuv420p,"
-            "tpad=stop_mode=clone:stop_duration=1",
+    ad.run(["ffmpeg", "-y", "-v", "error", *vin, "-filter_complex",
+            fc + f"[m{len(tails)}]fps={FPS},scale={W}:{H}:flags=lanczos:in_range=full:out_range=tv,format=yuv420p,"
+            "tpad=stop_mode=clone:stop_duration=1[v]", "-map", "[v]",
             "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-g", str(FPS), "-keyint_min", str(FPS),
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", base])
     audio = work / "voice.m4a"
