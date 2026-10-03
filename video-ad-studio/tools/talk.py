@@ -68,7 +68,7 @@ SRC_HEAD_Y = 0.20                # 元映像（三脚固定）での頭頂の位
 
 def sdr_clip(src: Path, a: float, dur: float, cache: Path) -> Path:
     """iPhone の HDR を avconvert で SDR 4K に。区間ごとにキャッシュ（背景違いで使い回す）。"""
-    out = cache / f"sdr_{a:.2f}_{dur:.2f}.mp4"
+    out = cache / f"sdr_{a:.2f}_{dur:.2f}.mp4" if src.stem == "IMG_1004" else cache / f"sdr_{src.stem}_{a:.2f}_{dur:.2f}.mp4"
     if not out.exists():
         ad.run(["avconvert", "-s", src, "-o", out, "-p", "Preset3840x2160", "--start", f"{a:.3f}",
                 "--duration", f"{dur + 0.25:.3f}", "--replace"], stdout=subprocess.DEVNULL)
@@ -157,7 +157,8 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
         ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(bg_file)],
         capture_output=True, text=True).stdout.strip().split(","))
     durs = [frames(b - a) for a, b in (s["v"] for s in spec["segments"])]
-    sdrs = [sdr_clip(src, s["v"][0], d, cache) for s, d in zip(spec["segments"], durs)]
+    sdrs = [sdr_clip(p.dir / s["video"] if s.get("video") else src, s["v"][0], d, cache)
+            for s, d in zip(spec["segments"], durs)]
     offs = align_offsets(sdrs, green) if spec.get("align", True) else [(0.0, 0.0)] * len(sdrs)
     ad.save_json(work / "align.json", [{"dy": round(a, 4), "dx": round(b, 4)} for a, b in offs])
     segs, t = [], 0.0
@@ -201,7 +202,9 @@ def caption_parts(segs: list[dict], words: list[dict]) -> None:
     for s in segs:
         a, b = s["v"]
         parts = s["telop"].split("|")
-        if s["who"] == "nakamura":
+        if s.get("_words"):  # 別素材の区間・後撮りの撮影者の声は、区間ごとの文字起こしを使う
+            toks = s["_words"]
+        elif s["who"] == "nakamura":
             toks = [w for w in words if a - 0.05 <= w["start"] < b]
         else:
             toks = s.get("_words", [])  # 後撮りの撮影者の声があれば、その単語時刻に合わせる
@@ -441,6 +444,16 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", base])
     audio = work / "voice.m4a"
     ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vn", "-c:a", "aac", "-b:a", "192k", audio])
+    for s in segs:  # 別素材（追加撮影）の区間は、区間の音声だけを文字起こしして時刻を合わせる
+        if s.get("video") and s["who"] == "nakamura":
+            va, vb = s["v"]
+            wj = work / f"words_{Path(s['video']).stem}_{va:.2f}.json"
+            if not wj.exists():
+                wav = work / f"words_{Path(s['video']).stem}_{va:.2f}.wav"
+                ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{va:.3f}", "-to", f"{vb:.3f}", "-i", p.dir / s["video"],
+                        "-map", "0:a:0", "-ac", "1", "-ar", "16000", wav])
+                ad.save_json(wj, ad.transcribe_whisper(wav, wav.with_suffix(".whisper.json")))
+            s["_words"] = [{**w, "start": w["start"] + va, "end": w["end"] + va} for w in ad.load_json(wj)]
     for s in segs:  # 撮影者の声の単語時刻（区間の元動画の時刻に換算）
         if s["who"] == "satsuei" and s.get("audio"):
             clip, _ = satsuei_clip(p, spec, s, work)
