@@ -836,7 +836,7 @@ def cmd_qa(a) -> None:
         words = transcribe_whisper(final, qa / "retranscribe.json")
         heard, _ = apply_glossary(*char_times(words), br["glossary"])
         heard = norm(heard)
-        sm = difflib.SequenceMatcher(None, cap_text, heard)
+        sm = difflib.SequenceMatcher(None, cap_text, heard, autojunk=False)
         diffs = [(op, cap_text[i1:i2], heard[j1:j2]) for op, i1, i2, j1, j2 in sm.get_opcodes() if op != "equal"]
         report.append(f"- 一致率 {sm.ratio() * 100:.1f}%（音声認識側の誤りも含むので、差分を人/AIが判断）")
         for op, c_, h_ in diffs[:30]:
