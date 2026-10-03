@@ -200,8 +200,10 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
     green = spec.get("green", "0x78B23A")
     cache = p.edit / "talk_sdr"
     cache.mkdir(exist_ok=True)
-    fw, fh = int(SW * FG_SCALE) // 2 * 2, int(SH * FG_SCALE) // 2 * 2
-    fx, fy = (SW - fw) // 2, int(HEAD_Y * SH - SRC_HEAD_Y * fh)
+    fr = spec.get("framing", {})  # 素材ごとの構図（立ち撮りなど）。scale / head_y / src_head_y
+    sc = fr.get("scale", FG_SCALE)
+    fw, fh = int(SW * sc) // 2 * 2, int(SH * sc) // 2 * 2
+    fx, fy = (SW - fw) // 2, int(fr.get("head_y", HEAD_Y) * SH - fr.get("src_head_y", SRC_HEAD_Y) * fh)
     bg_file = p.dir / bg["file"]
     bg_size = tuple(int(v) for v in subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(bg_file)],
