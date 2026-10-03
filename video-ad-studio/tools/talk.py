@@ -186,9 +186,10 @@ SATSUEI_CHAIN = ("highpass=f=90,afftdn=nr=10:nf=-55,equalizer=f=250:t=q:w=1.2:g=
 def satsuei_clip(p: ad.Project, spec: dict, s: dict, work: Path) -> tuple[Path, float]:
     """後撮りの撮影者の声：指定区間を切り出し → ノイズ除去・音質調整・軽い部屋鳴り → 中村さんより少し小さく(-26LUFS)。"""
     au = s["audio"]
-    out = work / f"satsuei_{au['start']:.2f}.wav"
+    tag = f"{Path(au['file']).stem}_" if au.get("file") else ""
+    out = work / f"satsuei_{tag}{au['start']:.2f}.wav"
     if not out.exists():
-        src = p.dir / spec["satsuei_audio"]
+        src = p.dir / (au.get("file") or spec["satsuei_audio"])
         ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{au['start']:.3f}", "-to", f"{au['end']:.3f}", "-i", src,
                 "-af", SATSUEI_CHAIN + ",loudnorm=I=-26:TP=-6:LRA=7,afade=t=in:d=0.02,areverse,afade=t=in:d=0.08,areverse",
                 "-ac", "1", "-ar", "48000", out])
@@ -507,12 +508,18 @@ def cmd_talk(a) -> None:
     bgs = spec.get("backgrounds") or {"main": {"file": spec["background"]}}
     keys = list(bgs) if a.bg == "all" else [a.bg or next(iter(bgs))]
     for key in keys:
-        render_one(a, p, spec, key, bgs[key])
+        if a.variant:  # 冒頭違いなど：variants[名前] の区間で segments を差し替えた別バージョン
+            v = spec["variants"][a.variant]
+            sp = {**spec, "segments": [{**seg, **v["segments"][str(i)]} if str(i) in v["segments"] else seg
+                                       for i, seg in enumerate(spec["segments"])]}
+            render_one(a, p, sp, key, bgs[key], tag=f"_{a.variant}")
+        else:
+            render_one(a, p, spec, key, bgs[key])
 
 
-def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
-    ad.log(f"背景 {key}: {bg['file']}")
-    work = p.edit / f"talk_{key}"
+def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict, tag: str = "") -> None:
+    ad.log(f"背景 {key}: {bg['file']}" + (f"（{tag[1:]}）" if tag else ""))
+    work = p.edit / f"talk_{key}{tag}"
     work.mkdir(parents=True, exist_ok=True)
     words_path = p.edit / "video_words_norm.json"
     if not words_path.exists():
@@ -567,7 +574,7 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
     lint = subprocess.run([ad.HF_BIN, "lint", str(p.hf)], capture_output=True, text=True)
     print((lint.stdout or lint.stderr).strip().splitlines()[-1])
     raw = render_parts(p, segs, total, base, audio, work, a.draft)
-    final = ad.loudnorm_to_output(p, raw, suffix=f"_{key}" + ("_draft" if a.draft else ""))
+    final = ad.loudnorm_to_output(p, raw, suffix=f"_{key}{tag}" + ("_draft" if a.draft else ""))
     p.set_state(rendered=str(final))
     ad.log(f"→ {final.relative_to(ad.STUDIO)}")
 
@@ -577,4 +584,5 @@ if __name__ == "__main__":
     ap.add_argument("name")
     ap.add_argument("--draft", action="store_true")
     ap.add_argument("--bg", default="all")
+    ap.add_argument("--variant", default="")
     cmd_talk(ap.parse_args())
