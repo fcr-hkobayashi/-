@@ -352,7 +352,7 @@ tl.seek(0);
 </html>
 """
     (hf / "index.html").write_text(html, encoding="utf-8")
-    if media_start == 0.0:
+    if hf == p.hf:  # 分割書き出し用のパートでは上書きしない（テロップ一覧は全体版だけ）
         ad.save_json(p.edit / "captions.json", caps)
 
 
