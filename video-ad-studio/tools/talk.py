@@ -128,6 +128,23 @@ def align_offsets(sdrs: list[Path], green: str, pull: float = 0.1, ylim: float =
     return offs
 
 
+SATSUEI_CHAIN = ("highpass=f=90,afftdn=nr=10:nf=-55,equalizer=f=250:t=q:w=1.2:g=-2,"
+                 "equalizer=f=3200:t=q:w=1:g=2,acompressor=threshold=-22dB:ratio=3:attack=8:release=160,"
+                 "aecho=0.85:0.5:22|41:0.10|0.06")  # カメラの後ろにいる距離感を少しだけ足す
+
+
+def satsuei_clip(p: ad.Project, spec: dict, s: dict, work: Path) -> tuple[Path, float]:
+    """後撮りの撮影者の声：指定区間を切り出し → ノイズ除去・音質調整・軽い部屋鳴り → 中村さんより少し小さく(-26LUFS)。"""
+    au = s["audio"]
+    out = work / f"satsuei_{au['start']:.2f}.wav"
+    if not out.exists():
+        src = p.dir / spec["satsuei_audio"]
+        ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{au['start']:.3f}", "-to", f"{au['end']:.3f}", "-i", src,
+                "-af", SATSUEI_CHAIN + ",loudnorm=I=-26:TP=-6:LRA=7,afade=t=in:d=0.02,areverse,afade=t=in:d=0.08,areverse",
+                "-ac", "1", "-ar", "48000", out])
+    return out, ad.ffprobe_duration(out)
+
+
 def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict]:
     src = p.dir / spec["video"]
     green = spec.get("green", "0x78B23A")
@@ -159,7 +176,13 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
                   f"[bg][fg]overlay={fx + ox}:{fy + oy}:shortest=1,format=yuv420p[v]")
             last = i == len(spec["segments"]) - 1
             fade = f"afade=t=in:d=0.03,afade=t=out:st={max(0, dur - (0.4 if last else 0.04)):.3f}:d={0.4 if last else 0.04}"
-            if s["who"] == "satsuei":  # 撮影者の声は後で入れる → 無音の余白
+            if s["who"] == "satsuei" and s.get("audio"):  # 後撮りした撮影者の声を、少し間を空けて置く
+                clip, _ = satsuei_clip(p, spec, s, work)
+                lead = int(s["audio"].get("lead", 0.25) * 1000)
+                amap = ["-i", clip]
+                fc += f";[2:a]adelay={lead},apad=whole_dur={dur:.4f},aformat=channel_layouts=stereo[a]"
+                aflt = ["-map", "[a]"]
+            elif s["who"] == "satsuei":  # 撮影者の声は後で入れる → 無音の余白
                 amap = ["-f", "lavfi", "-t", f"{dur:.4f}", "-i", "anullsrc=r=48000:cl=stereo"]
                 aflt = ["-map", "2:a"]
             else:
@@ -178,7 +201,10 @@ def caption_parts(segs: list[dict], words: list[dict]) -> None:
     for s in segs:
         a, b = s["v"]
         parts = s["telop"].split("|")
-        toks = [w for w in words if a - 0.05 <= w["start"] < b] if s["who"] == "nakamura" else []
+        if s["who"] == "nakamura":
+            toks = [w for w in words if a - 0.05 <= w["start"] < b]
+        else:
+            toks = s.get("_words", [])  # 後撮りの撮影者の声があれば、その単語時刻に合わせる
         text, times = ad.char_times(toks) if toks else ("", [])
         keep = [k for k, c in enumerate(text) if c not in ad.PUNCT]
         tot = sum(len(ad.norm(plain(x))) for x in parts) or 1
@@ -414,6 +440,14 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict) -> None:
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", base])
     audio = work / "voice.m4a"
     ad.run(["ffmpeg", "-y", "-v", "error", "-i", joined, "-vn", "-c:a", "aac", "-b:a", "192k", audio])
+    for s in segs:  # 撮影者の声の単語時刻（区間の元動画の時刻に換算）
+        if s["who"] == "satsuei" and s.get("audio"):
+            clip, _ = satsuei_clip(p, spec, s, work)
+            wj = clip.with_suffix(".words.json")
+            ws = ad.load_json(wj) if wj.exists() else ad.transcribe_whisper(clip, clip.with_suffix(".whisper.json"))
+            ad.save_json(wj, ws)
+            off = s["v"][0] + s["audio"].get("lead", 0.25)
+            s["_words"] = [{**w, "start": w["start"] + off, "end": w["end"] + off} for w in ws]
     caption_parts(segs, words)
     ad.save_json(work / "timeline.json", [{k: (str(v) if isinstance(v, Path) else v) for k, v in s.items()} for s in segs])
     compose(p, segs, total, base, audio)  # 全体版（プレビュー・テロップ一覧用）
