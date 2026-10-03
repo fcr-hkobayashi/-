@@ -306,8 +306,9 @@ html, body {{ width: {W}px; height: {H}px; overflow: hidden; background: #000; }
 .cap {{ position: absolute; left: 60px; right: 60px; top: 1020px; display: flex; justify-content: center; }}
 .blk {{ display: inline-flex; flex-direction: column; align-items: center; color: #fff; font-weight: 900;
   transform: skewX(-8deg);
-  line-height: 1.22; letter-spacing: -0.01em; -webkit-text-stroke: 2px rgba(20,20,20,.55);
-  text-shadow: 0 0 3px rgba(0,0,0,.95), 0 0 10px rgba(0,0,0,.55), 0 5px 12px rgba(0,0,0,.55); }}
+  line-height: 1.22; letter-spacing: -0.01em;
+  /* 縁取り(text-stroke)は使わない：Noto Sans JP は字形が部品の重なりでできていて、縁取りが継ぎ目の線として出てしまう */
+  text-shadow: 0 0 2px rgba(0,0,0,1), 0 0 5px rgba(0,0,0,.85), 0 0 12px rgba(0,0,0,.5), 0 5px 12px rgba(0,0,0,.55); }}
 .stag .blk .ln:first-child {{ align-self: flex-start; }}
 .stag .blk .ln:last-child {{ align-self: flex-end; }}
 .ln {{ white-space: nowrap; }}
@@ -319,8 +320,8 @@ html, body {{ width: {W}px; height: {H}px; overflow: hidden; background: #000; }
   line-height: 1.12; text-shadow: 0 2px 6px rgba(0,0,0,.6); }}
 .quote .ln {{ background: rgba(176,140,40,.92); padding: 14px 6px; margin-left: 10px; }}
 .tate {{ position: absolute; right: 70px; top: 280px; writing-mode: vertical-rl; color: #FFE600; font-weight: 900;
-  line-height: 1.08; -webkit-text-stroke: 2px rgba(20,20,20,.5);
-  text-shadow: 0 0 3px rgba(0,0,0,.95), 0 0 12px rgba(0,0,0,.55), 0 5px 12px rgba(0,0,0,.5); }}
+  line-height: 1.08;
+  text-shadow: 0 0 2px rgba(0,0,0,1), 0 0 5px rgba(0,0,0,.85), 0 0 12px rgba(0,0,0,.5), 0 5px 12px rgba(0,0,0,.5); }}
 .tate .ln {{ margin-left: 6px; }}
 .ctabox {{ position: absolute; left: 130px; right: 130px; top: 1260px; background: #E8383D; color: #fff;
   font-weight: 900; font-size: 50px; text-align: center; line-height: 1.3; padding: 22px 16px; border-radius: 26px;
