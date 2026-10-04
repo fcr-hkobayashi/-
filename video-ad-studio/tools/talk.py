@@ -510,8 +510,9 @@ def cmd_talk(a) -> None:
     for key in keys:
         if a.variant:  # 冒頭違いなど：variants[名前] の区間で segments を差し替えた別バージョン
             v = spec["variants"][a.variant]
-            sp = {**spec, "segments": [{**seg, **v["segments"][str(i)]} if str(i) in v["segments"] else seg
-                                       for i, seg in enumerate(spec["segments"])]}
+            ov, drop = v.get("segments", {}), set(v.get("drop", []))  # drop: 使わない区間の番号
+            sp = {**spec, "segments": [{**seg, **ov[str(i)]} if str(i) in ov else seg
+                                       for i, seg in enumerate(spec["segments"]) if i not in drop]}
             render_one(a, p, sp, key, bgs[key], tag=f"_{a.variant}")
         else:
             render_one(a, p, spec, key, bgs[key])
