@@ -12,6 +12,7 @@ edit.json の segments（元動画の使用区間）を順につなぐ。
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -257,7 +258,11 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
     for i, s in enumerate(spec["segments"]):
         dur, sdr = durs[i], sdrs[i]
         out = work / f"seg_{i:02d}.mp4"
-        if i in stab or not out.exists() or abs(ad.ffprobe_duration(out) - dur) > 0.05:
+        # 使い回しは「素材・区間・ずらし量・最後かどうか・撮影者音声」が前回と同じときだけ（番号ずれで別区間を流用しない）
+        key = json.dumps([s.get("video"), s["v"], s["who"], s.get("audio"), offs[i], i == len(spec["segments"]) - 1,
+                          spec.get("framing")], sort_keys=True)
+        meta = out.with_suffix(".key")
+        if i in stab or not out.exists() or not meta.exists() or meta.read_text() != key:
             fc = video_fc(i)
             last = i == len(spec["segments"]) - 1
             fade = f"afade=t=in:d=0.03,afade=t=out:st={max(0, dur - (0.4 if last else 0.04)):.3f}:d={0.4 if last else 0.04}"
@@ -276,6 +281,7 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
                     "-filter_complex", fc, "-map", "[v]", *aflt, "-t", f"{dur:.4f}",
                     "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-g", str(FPS),
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", out])
+            meta.write_text(key)
         seg = {**s, "i": i, "at": round(t, 4), "len": dur, "file": out}
         if xf and k0 <= i + 1 < len(spec["segments"]):  # 次のカットへ重ねる分：この区間の続き xf コマ
             tail = work / f"tail_{i:02d}.mp4"
