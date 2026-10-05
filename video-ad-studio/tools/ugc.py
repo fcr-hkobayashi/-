@@ -215,9 +215,12 @@ def stretch(p: ad.Project, au: dict, anchors: list, length: float, out: Path) ->
         (x0, y0), (x1, y1) = anchors[k], anchors[k + 1]
         if x1 - x0 < 0.01:
             continue
-        tempo = max(0.55, min(1.8, (x1 - x0) / max(0.02, y1 - y0)))
+        want = (x1 - x0) / max(0.02, y1 - y0)
+        tempo = max(0.55, min(1.8, want))
+        # 伸ばしきれない区切り（間など）は無音で埋めて、次の区切りの頭がずれないようにする
+        fill = f",apad,atrim=0:{y1 - y0:.4f}" if want < 0.55 else ""
         fc += (f"[0:a]atrim={a + x0:.4f}:{a + x1:.4f},asetpts=PTS-STARTPTS,aresample=48000,"
-               f"aformat=channel_layouts=mono,atempo={tempo:.4f}[p{k}];")
+               f"aformat=channel_layouts=mono,atempo={tempo:.4f}{fill}[p{k}];")
         labels.append(f"[p{k}]")
     fc += "".join(labels) + f"concat=n={len(labels)}:v=0:a=1,afade=t=in:d=0.02,apad,atrim=0:{length:.4f}[a]"
     ad.run(["ffmpeg", "-y", "-v", "error", "-i", p.dir / au["file"], "-filter_complex", fc, "-map", "[a]",
@@ -248,7 +251,24 @@ def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
         src = srcs[s["src"]]
         rngs = [list(r) for r in s["v"]]
         au = s.get("audio") or {}
-        if au.get("warp"):
+        if au.get("warp") and s.get("anchors"):
+            # 手で決めた対応点（[音声の秒, 映像の秒], ...）。映像の秒は元動画の時刻。複数範囲はつないだ後の時刻に直す
+            def rel(t):
+                acc = 0.0
+                for ra, rb in rngs:
+                    if ra - 0.05 <= t <= rb + 0.05:
+                        return acc + min(max(t, ra), rb) - ra
+                    acc += rb - ra
+                raise ValueError(f"対応点 {t} が映像範囲の外です")
+            pts = sorted(s["anchors"])
+            a0, a1 = pts[0][0], pts[-1][0]
+            raw48 = adir / f"{i:02d}_raw.wav"
+            ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{a0:.3f}", "-to", f"{a1:.3f}", "-i", p.dir / au["file"],
+                    "-ac", "1", "-ar", "48000", raw48])
+            anchors_of[i] = [(x - a0, rel(y)) for x, y in pts]
+            cleans[i] = {"file": str(raw48), "start": 0.0, "end": a1 - a0, "warp": True}
+            ad.save_json(adir / f"{i:02d}.json", {"range": rngs, "how": "manual", "anchors": anchors_of[i]})
+        elif au.get("warp"):
             # 指定範囲（前後0.4秒の余裕つき）の撮影時の音の中から、台詞と同じ響きの部分を DTW で探す
             a, b = rngs[0][0], rngs[-1][1]
             pad = s.get("pad", 0.4)
@@ -282,6 +302,10 @@ def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
                 if best is None or score > best[0]:
                     best = (score, name, cau, anc, va, vb, ms, me)
             score, name, au, anc, va, vb, ms, me = best
+            if s.get("keep"):  # 指定範囲をそのまま使う（対応点を範囲の頭からの時刻に直す）
+                shift = va - a
+                va, vb = a, b
+                anc = [(x, y + shift) for x, y in anc]
             rngs = [[round(va, 3), round(vb, 3)]]
             anchors_of[i] = anc
             cleans[i] = au
@@ -317,7 +341,7 @@ def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
                     ox = int(max(0, min(zw - W, tx * zw - HEAD_X * W)))
                     oy = int(max(0, min(zh - H, ty * zh - HEAD_TOP * H)))
                     vf += f",scale={zw}:{zh},crop={W}:{H}:{ox}:{oy}"
-                if s.get("style") == "split":  # 上半分に人物（顔中心）、下半分は黒
+                if s.get("style") == "split" or s.get("layout") == "split":  # 上半分に人物（顔中心）、下半分は黒
                     vf += f",crop={W}:{H // 2}:0:{int(H * 0.08)},pad={W}:{H}:0:0:black"
                 vf += f",eq=brightness={spec.get('brightness', 0.03)}:saturation=1.04,format=yuv420p"
                 pv = work / f"seg_{i:02d}_{k}.mp4"
