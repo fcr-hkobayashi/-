@@ -241,6 +241,30 @@ def env_corr(src: Path, a: float, b: float, wav: Path) -> float:
     return float(np.corrcoef(c[:n], u[:n])[0, 1]) if n > 50 else -1.0
 
 
+def onset(f: Path, a: float | None = None, b: float | None = None) -> float:
+    """声が鳴り始める時刻（区間の頭からの秒）。"""
+    cmd = ["ffmpeg", "-v", "info"] + (["-ss", f"{a:.3f}", "-to", f"{b:.3f}"] if a is not None else []) + \
+        ["-i", str(f), "-map", "0:a:0", "-af", "silencedetect=n=-40dB:d=0.08", "-f", "null", "-"]
+    o = subprocess.run(cmd, capture_output=True, text=True).stderr
+    ev = [(k, float(v)) for k, v in re.findall(r"silence_(start|end): ([0-9.]+)", o)]
+    if ev and ev[0][0] == "start" and ev[0][1] < 0.03:
+        return next((t for k, t in ev if k == "end"), 0.0)
+    return 0.0
+
+
+def align_onset(cam_src: Path, a: float, b: float, wav: Path, dur: float) -> float:
+    """話し始めを撮影時の音にそろえる（口が動き出す時刻に声の頭を合わせる）。ずらした秒を返す。"""
+    d = onset(cam_src, a, b) - onset(wav)
+    if abs(d) < 0.04:
+        return 0.0
+    tmp = wav.with_name(wav.stem + "_on.wav")
+    af = (f"adelay={int(d * 1000)}:all=1" if d > 0 else f"atrim=start={-d:.4f},asetpts=PTS-STARTPTS") + \
+        f",apad,atrim=0:{dur:.4f}"
+    ad.run(["ffmpeg", "-y", "-v", "error", "-i", wav, "-af", af, "-ar", "48000", "-ac", "2", tmp])
+    tmp.replace(wav)
+    return round(d, 3)
+
+
 def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
     srcs = {k: p.dir / v for k, v in spec["sources"].items()}
     # 1) 範囲を確定（言葉の切れ目に合わせる）
@@ -325,7 +349,7 @@ def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
         rngs = plan[i]
         vlen = sum(b - a for a, b in rngs)
         dur = frames(vlen if (au.get("warp") or not au) else max(vlen, au["end"] - au["start"] + s.get("tail", 0.0)))
-        key = json.dumps([s, rngs, anchors_of.get(i), [heads.get((i, k)) for k in range(len(rngs))], spec.get("brightness")],
+        key = json.dumps(["onset-v1", s, rngs, anchors_of.get(i), [heads.get((i, k)) for k in range(len(rngs))], spec.get("brightness")],
                          sort_keys=True, ensure_ascii=False)
         out = work / f"seg_{i:02d}.mp4"
         meta = out.with_suffix(".key")
@@ -366,6 +390,10 @@ def build(p: ad.Project, spec: dict, work: Path) -> list[dict]:
                         "".join(f"[{k}:a]" for k in range(len(cams))) + f"concat=n={len(cams)}:v=0:a=1[a]",
                         "-map", "[a]", cam])
                 stretch(p, cleans[i], anchors_of[i], dur, wav)
+                if len(rngs) == 1 and s.get("onset", True):
+                    sh = align_onset(src, rngs[0][0], rngs[0][1], wav, dur)
+                    if sh:
+                        ad.log(f"区間{i}: 話し始めを {sh * 1000:+.0f}ms そろえました")
             elif not au:
                 ad.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-t", f"{dur:.4f}", "-i",
                         "anullsrc=r=48000:cl=stereo", wav])
