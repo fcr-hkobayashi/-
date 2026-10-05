@@ -6,8 +6,14 @@ type: resource
 
 # Claude Code セッション索引
 
-取り込み 34 件（新規 1 / 既存 33 / 本文なし 0）。最終更新 2026-10-04
+取り込み 40 件（新規 4 / 既存 36 / 本文なし 0）。最終更新 2026-10-05
 
+- 2026-10-05 [[2026-10-05-上記のドライブに動画を入れたのですがどうやればいいでしょうか？|上記のドライブに動画を入れたのですがどうやればいいでしょうか？]]
+- 2026-10-05 [[2026-10-05-@Usershayato.kobayashiDownloads中村カラオケ.mp4_@Usershay|@"/Users/hayato.kobayashi/Downloads/中村カラオケ.mp4" @"/Users/hay]]
+- 2026-10-05 [[2026-10-05-pasted_content_id=6985_今動画編集を行なっているのですが（内容に関してはオブシディアンを確|<pasted_content id="6985"> 今動画編集を行なっているのですが（内容に関してはオブシディアンを確]]
+- 2026-10-05 [[2026-10-05-Usershayato.kobayashisecond-brain-repoobsidian-second-br|/Users/hayato.kobayashi/second-brain-repo/obsidian-second-br]]
+- 2026-10-05 [[2026-10-05-Usershayato.kobayashisecond-brain-repoobsidian-second-br|/Users/hayato.kobayashi/second-brain-repo/obsidian-second-br]]
+- 2026-10-05 [[2026-10-05-Usershayato.kobayashisecond-brain-repoobsidian-second-br|/Users/hayato.kobayashi/second-brain-repo/obsidian-second-br]]
 - 2026-10-04 [[2026-10-04-僕がTwitterとか動画を送るのでそれをじどうで学習して欲しいです！_私は今動画編集を行なっていて上司からこの2分が送|僕がTwitterとか動画を送るのでそれをじどうで学習して欲しいです！ 私は今動画編集を行なっていて上司からこの2分が送]]
 - 2026-10-03 [[2026-10-03-This_session_is_being_continued_from_a_previous_conversation|This session is being continued from a previous conversation]]
 - 2026-10-03 [[2026-10-03-pasted_content_id=8b50_Claude_Codeで縦型動画広告を最高品質で編集する方法【|<pasted_content id="8b50"> # Claude Codeで縦型動画広告を最高品質で編集する方法【]]
