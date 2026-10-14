@@ -39,7 +39,8 @@ HF_BIN = STUDIO / "node_modules/.bin/hyperframes"
 WHISPER_MODEL = Path(os.environ.get(
     "WHISPER_MODEL", Path.home() / ".cache/hyperframes/whisper/models/ggml-large-v3.bin"))
 VIDEO_EXT = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".mts"}
-W, H, FPS = 1080, 1920, 30
+import os as _os
+W, H, FPS = int(_os.environ.get('AD_W', 1080)), int(_os.environ.get('AD_H', 1920)), 30
 SENT_END = "。？！?!"
 PUNCT = "。、，,．.？！?!「」『』（）()・…〜~ 　"
 
@@ -157,8 +158,13 @@ def transcribe_whisper(video: Path, out_json: Path) -> list[dict]:
     stem = out_json.parent / out_json.name.removesuffix(".json")  # whisper-cli は -of に .json を付ける
     wav = out_json.parent / (out_json.name + ".wav")
     run(["ffmpeg", "-y", "-v", "error", "-i", video, "-vn", "-ac", "1", "-ar", "16000", wav])
-    run(["whisper-cli", "-m", WHISPER_MODEL, "-f", wav, "-l", "ja", "-ojf", "-of", stem,
-         "--prompt", whisper_prompt(), "-t", "8", "-dtw", whisper_dtw_preset(), "-nfa"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    out_json.unlink(missing_ok=True)
+    # whisper-cli は終了処理（exit 時）で落ちることがあるが、結果の JSON は書けているのでそれを使う
+    r = subprocess.run([str(c) for c in ["whisper-cli", "-m", WHISPER_MODEL, "-f", wav, "-l", "ja", "-ojf", "-of", stem,
+                        "--prompt", whisper_prompt(), "-t", "8", "-dtw", whisper_dtw_preset(), "-nfa"]],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if not out_json.exists():
+        raise subprocess.CalledProcessError(r.returncode, "whisper-cli")
     wav.unlink(missing_ok=True)
     raw = json.loads(out_json.read_bytes().decode("utf-8", "surrogateescape"))
     # DTW の時刻（センチ秒）を各トークンの開始時刻として使う。終了は次トークン開始まで

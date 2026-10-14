@@ -33,6 +33,7 @@ def main() -> None:
     ap.add_argument("bgm", help="BGM ファイル（プロジェクトからの相対パス可）")
     ap.add_argument("--suffix", required=True)
     ap.add_argument("--target", type=float, default=-30.0, help="声の後ろでの BGM の大きさ（LUFS）")
+    ap.add_argument("--duck-ratio", type=float, default=5.0, help="声が出ている間に BGM を下げる強さ（大きいほど下がる。2〜3で控えめ）")
     ap.add_argument("--fade-in", type=float, default=0.8)
     ap.add_argument("--fade-out", type=float, default=1.7)
     ap.add_argument("--xfade", type=float, default=1.0, help="曲を繰り返すときに重ねる秒")
@@ -61,7 +62,7 @@ def main() -> None:
     fc = (f"{chain}aresample=48000,aformat=channel_layouts=stereo,volume={g:.1f}dB,{ramp}"
           f"afade=t=in:d={a.fade_in},afade=t=out:st={dur - a.fade_out - 0.1:.2f}:d={a.fade_out},atrim=0:{dur:.3f}[bgm];"
           f"[0:a]aresample=48000,asplit=2[v1][v2];"
-          f"[bgm][v2]sidechaincompress=threshold=0.025:ratio=5:attack=25:release=380:makeup=1[duck];"
+          f"[bgm][v2]sidechaincompress=threshold=0.025:ratio={a.duck_ratio}:attack=25:release=380:makeup=1[duck];"
           f"[v1][duck]amix=inputs=2:normalize=0:duration=first[out]")
     raw = p.edit / f"mix{a.suffix}.mp4"
     ad.run(["ffmpeg", "-y", "-v", "error", "-i", video, *ins, "-filter_complex", fc, "-map", "0:v", "-map", "[out]",

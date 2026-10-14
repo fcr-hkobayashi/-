@@ -9,3 +9,11 @@ samples/*.aiff
 .env
 *.log
 references/*.mp4
+
+# 学習素材の動画・フレームはローカルのみ（文字起こし・meta は残す）
+references/learn/*/*.mp4
+references/learn/*/*.mov
+references/learn/*/*.webm
+references/learn/*/frames/
+inbox/learn.txt
+tools/.keyenv/

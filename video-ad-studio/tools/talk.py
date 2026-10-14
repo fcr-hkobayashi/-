@@ -35,12 +35,13 @@ def markup(text: str) -> str:
         h = re.sub(r"#(.+?)#", r'<span class="big">\1</span>', h)
         h = re.sub(r"\*(.+?)\*", r'<span class="y">\1</span>', h)
         h = re.sub(r"!(.+?)!", r'<span class="r">\1</span>', h)
+        h = re.sub(r"\^(.+?)\^", r'<span class="g">\1</span>', h)   # ^語^ … 明るい緑
         out.append(f'<div class="ln">{h}</div>')
     return "".join(out)
 
 
 def plain(t: str) -> str:
-    return re.sub(r"[*!#/|]", "", t)
+    return re.sub(r"[*!#/|^~]", "", t)
 
 
 def units(line: str) -> float:
@@ -49,7 +50,7 @@ def units(line: str) -> float:
         if c == "#":
             big = not big
             continue
-        if c in "*!":
+        if c in "*!^":
             continue
         n += (0.58 if c.isascii() else 1.0) * (1.45 if big else 1.0)
     return n
@@ -80,7 +81,8 @@ def bg_filter(bg: dict, bg_size: tuple[int, int]) -> str:
     """背景を縦長キャンバスに配置。fit=natural は拡大せずに下端合わせ（物の大きさを実寸に近く保つ）。
     blur=0 ならぼかさない。crop_top で上部（透かし等）を落とす。"""
     blur = bg.get("blur", 2.5)
-    tail = (f",gblur=sigma={blur}" if blur else "") + f",eq=brightness={bg.get('brightness', 0.02)}:saturation=1.03[bg];"
+    tail = (f",gblur=sigma={blur}" if blur else "") + f",eq=brightness={bg.get('brightness', 0.02)}:saturation=1.03" + \
+        (f",{bg['grade']}" if bg.get("grade") else "") + "[bg];"
     if bg.get("fit") == "natural":
         import math
         w, h = bg_size
@@ -93,13 +95,20 @@ def bg_filter(bg: dict, bg_size: tuple[int, int]) -> str:
             f"crop={SW}:{SH}" + tail)
 
 
-def head_pos(clip: Path, at_end: bool, green: str) -> tuple[float, float]:
-    """クロマキーの切り抜きから頭頂の高さと頭の左右中心を測る（画面に対する割合）。"""
+def head_pos(clip: Path, at_end: bool, green: str, robust: bool = False) -> tuple[float, float]:
+    """クロマキーの切り抜きから頭頂の高さと頭の左右中心を測る（画面に対する割合）。
+    robust=True は顔の中央の帯だけで測る（背景の端に明るいムラがあり、切り抜きに少し残っても頭頂を誤認しない）。"""
     w, h = 270, 480
     seek = ["-sseof", "-0.12"] if at_end else ["-ss", "0.05"]
     raw = subprocess.run(["ffmpeg", "-v", "error", *seek, "-i", str(clip), "-frames:v", "1", "-vf",
                           f"scale={w}:{h},format=yuva444p,chromakey=color={green}:similarity=0.08:blend=0.04,alphaextract",
                           "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+    if robust:
+        c0, c1 = int(w * 0.33), int(w * 0.67)
+        rows = [[x for x in range(c0, c1) if raw[y * w + x] > 128] for y in range(h)]
+        top = next(y for y in range(h) if len(rows[y]) >= 18)
+        band = [x for y in range(top, min(h, top + 60)) for x in rows[y]]
+        return top / h, sum(band) / len(band) / w
     rows = [[x for x in range(w) if raw[y * w + x] > 128] for y in range(h)]
     top = next(y for y in range(h) if len(rows[y]) > 8)
     band = [x for y in range(top, min(h, top + 60)) for x in rows[y]]
@@ -107,13 +116,18 @@ def head_pos(clip: Path, at_end: bool, green: str) -> tuple[float, float]:
 
 
 def align_offsets(sdrs: list[Path], green: str, pull: float = 0.1, ylim: float = 0.02,
-                  xlim: float = 0.075) -> list[tuple[float, float]]:
+                  xlim: float = 0.075, robust: bool = False,
+                  norm: list[tuple[float, float, float]] | None = None) -> list[tuple[float, float]]:
     """カクカク対策：各カットの頭の位置を、直前のカットの終わりの位置にそろえるずらし量（画面に対する割合）。
     ずれが積み重ならないよう、全体の中央値へ pull の割合で引き戻す。
     上下は机のずれが目立たないよう ±ylim まで、左右は人物の映像のはみ出し幅（±xlim）まで。"""
     import statistics
-    st = [head_pos(f, False, green) for f in sdrs]
-    en = [head_pos(f, True, green) for f in sdrs]
+    st = [head_pos(f, False, green, robust) for f in sdrs]
+    en = [head_pos(f, True, green, robust) for f in sdrs]
+    if norm:  # 素材ごとに拡大率・頭の基準位置が違うので、最終的な画面上の位置（画面に対する割合）に換算してそろえる
+        cv = lambda p_, n_: ((p_[0] - n_[0]) * n_[1], (p_[1] - 0.5) * n_[2])  # noqa: E731
+        st = [cv(p_, n_) for p_, n_ in zip(st, norm)]
+        en = [cv(p_, n_) for p_, n_ in zip(en, norm)]
     my = statistics.median((a[0] + b[0]) / 2 for a, b in zip(st, en))
     mx = statistics.median((a[1] + b[1]) / 2 for a, b in zip(st, en))
     offs: list[tuple[float, float]] = []
@@ -206,6 +220,15 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
     sc = fr.get("scale", FG_SCALE)
     fw, fh = int(SW * sc) // 2 * 2, int(SH * sc) // 2 * 2
     fx, fy = (SW - fw) // 2, int(fr.get("head_y", HEAD_Y) * SH - fr.get("src_head_y", SRC_HEAD_Y) * fh)
+
+    def geo(seg: dict) -> tuple[int, int, int, int]:
+        """素材ごとの構図（source_framing）。撮影の立ち位置・距離が素材で違うとき、人物の大きさと頭の高さをそろえる。"""
+        o = (spec.get("source_framing") or {}).get(Path(seg.get("video") or spec["video"]).stem)
+        if not o:
+            return fw, fh, fx, fy
+        f = {**fr, **o}
+        w_, h_ = int(SW * f.get("scale", FG_SCALE)) // 2 * 2, int(SH * f.get("scale", FG_SCALE)) // 2 * 2
+        return w_, h_, (SW - w_) // 2, int(f.get("head_y", HEAD_Y) * SH - f.get("src_head_y", SRC_HEAD_Y) * h_)
     bg_file = p.dir / bg["file"]
     bg_size = tuple(int(v) for v in subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(bg_file)],
@@ -213,7 +236,18 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
     durs = [frames(b - a) for a, b in (s["v"] for s in spec["segments"])]
     sdrs = [sdr_clip(p.dir / s["video"] if s.get("video") else src, s["v"][0], d, cache)
             for s, d in zip(spec["segments"], durs)]
-    offs = align_offsets(sdrs, green) if spec.get("align", True) else [(0.0, 0.0)] * len(sdrs)
+    canvas_offs = bool(spec.get("robust_head"))  # True：ずらし量は画面（キャンバス）に対する割合
+    if spec.get("align", True) and canvas_offs:
+        nm = []
+        for sg in spec["segments"]:
+            fw_, fh_, _, _ = geo(sg)
+            o_ = (spec.get("source_framing") or {}).get(Path(sg.get("video") or spec["video"]).stem, {})
+            nm.append(({**fr, **o_}.get("src_head_y", SRC_HEAD_Y), fh_ / SH, fw_ / SW))
+        offs = align_offsets(sdrs, green, ylim=0.03, xlim=0.04, robust=True, norm=nm)
+    elif spec.get("align", True):
+        offs = align_offsets(sdrs, green)
+    else:
+        offs = [(0.0, 0.0)] * len(sdrs)
     # なめらか化（smooth.from 以降）：手ぶれ補正で机とPCを元の撮影の位置に固定する。
     # 机ごと動かす頭合わせは使わず、カットのつなぎ目はディゾルブ（render_one）でならす
     sm = spec.get("smooth") or {}
@@ -239,8 +273,10 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
 
     def video_fc(i: int, n0: int = 0) -> str:
         dy, dx = offs[i]
-        ox = int(max(-hx, min(hx, dx * fw)))
-        oy = int(dy * fh)
+        fw, fh, fx, fy = geo(spec["segments"][i])
+        hx = (fw - SW) // 2 - 2
+        ox = int(max(-hx, min(hx, dx * (SW if canvas_offs else fw))))
+        oy = int(dy * (SH if canvas_offs else fh))
         if i in stab:
             tr_ = stab[i][n0:] or stab[i][-1:]
             pos = f"x='{per_frame(fx, [v[1] for v in tr_])}':y='{per_frame(fy, [v[0] for v in tr_])}':eval=frame"
@@ -250,7 +286,7 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
                 f"[0:v]fps={FPS},scale={fw}:{fh},format=yuva444p,"
                 f"chromakey=color={green}:similarity=0.08:blend=0.04,"
                 f"despill=type=green:mix=0.6:expand=0.1,"
-                f"eq=brightness=0.05:contrast=1.04:saturation=1.04,colorbalance=rm=0.02:bm=-0.01[fg];"
+                f"{spec.get('fg_grade', 'eq=brightness=0.05:contrast=1.04:saturation=1.04,colorbalance=rm=0.02:bm=-0.01')}[fg];"
                 f"[bg][fg]overlay={pos}:shortest=1,format=yuv420p[v]")
 
     xf = int(sm.get("xfade", 0))
@@ -259,8 +295,8 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
         dur, sdr = durs[i], sdrs[i]
         out = work / f"seg_{i:02d}.mp4"
         # 使い回しは「素材・区間・ずらし量・最後かどうか・撮影者音声」が前回と同じときだけ（番号ずれで別区間を流用しない）
-        key = json.dumps([s.get("video"), s["v"], s["who"], s.get("audio"), offs[i], i == len(spec["segments"]) - 1,
-                          spec.get("framing")], sort_keys=True)
+        key = json.dumps([s.get("video"), s["v"], s["who"], s.get("audio"), s.get("audio_file"), offs[i], i == len(spec["segments"]) - 1,
+                          spec.get("framing"), spec.get("source_framing"), spec.get("fg_grade")], sort_keys=True)
         meta = out.with_suffix(".key")
         if i in stab or not out.exists() or not meta.exists() or meta.read_text() != key:
             fc = video_fc(i)
@@ -275,6 +311,8 @@ def build_segments(p: ad.Project, spec: dict, work: Path, bg: dict) -> list[dict
             elif s["who"] == "satsuei":  # 撮影者の声は後で入れる → 無音の余白
                 amap = ["-f", "lavfi", "-t", f"{dur:.4f}", "-i", "anullsrc=r=48000:cl=stereo"]
                 aflt = ["-map", "2:a"]
+            elif s.get("audio_file"):  # 声だけ差し替え（言い間違いを別テイクの音で直したもの。区間の頭＝ファイルの頭）
+                amap, aflt = ["-i", p.dir / s["audio_file"]], ["-map", "2:a", "-af", fade]
             else:
                 amap, aflt = [], ["-map", "0:a:0", "-af", fade]
             ad.run(["ffmpeg", "-y", "-v", "error", "-i", sdr, "-loop", "1", "-i", bg_file, *amap,
@@ -325,6 +363,9 @@ def caption_parts(segs: list[dict], words: list[dict]) -> None:
         s["parts"] = out
 
 
+LOOK: dict = {}  # edit.json の look / cta_color（render_one で設定）
+
+
 def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Path,
             hf: Path | None = None, media_start: float = 0.0) -> None:
     hf = hf or p.hf
@@ -350,11 +391,46 @@ def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Pa
         if sty == "mono":
             js.append(f'tl.set("#base",{{filter:"grayscale(1) contrast(1.08)"}},{ls:.3f});')
             js.append(f'tl.set("#base",{{filter:"none"}},{le:.3f});')
+        cr12 = LOOK.get("look") == "cr12b"
+        if cr12 and sty in ("quote", "tate"):  # 縦横が行き来すると読みにくい（上司FB）→ 本編は横書きにそろえる
+            sty = {"tate": "yellow", "quote": "normal"}[sty]
         for k, part in enumerate(s["parts"]):
             st, du = part["start"], max(0.2, part["end"] - part["start"])
             eid = f"s{s['i']}_{k}"
             txt = part["text"]
-            if sty in ("quote", "tate"):
+            if cr12 and sty == "hook":  # 冒頭：CR12b のように大きな黄色の縦書きを右側に。0秒から出す
+                cols = txt.replace("~", "/").split("/")
+                fs = int(min(124, 1250 / (max(len(plain(c)) for c in cols) + 0.5)))
+                if "~" in txt:  # 「前~後」：縦書きの読む順（右→左）に、前半を右・後半を左へ分けて置く（右を先に出す）
+                    lt, rt = txt.split("~", 1)
+                    inner = (f'<div class="hookv" style="font-size:{fs}px">{markup(lt)}</div>'
+                             f'<div class="hookv hl" style="font-size:{fs}px">{markup(rt)}</div>')
+                else:
+                    inner = f'<div class="hookv" style="font-size:{fs}px">{markup(txt)}</div>'
+                els.append(f'<div id="{eid}" class="clip layer" data-start="{st:.3f}" data-duration="{du:.3f}" '
+                           f'data-track-index="2">{inner}</div>')
+                js.append(f'tl.fromTo("#{eid} .ln",{{opacity:0,scale:1.25}},{{opacity:1,scale:1,duration:0.18,'
+                          f'stagger:0.22,ease:"back.out(2)"}},{st:.3f});')
+            elif sty == "flow":  # 「A|B|C」を1つずつ、真ん中寄りに左上→右下へ階段状に流し入れ、区間の終わりまで残す
+                n = len(s["parts"])
+                fs = fit(txt, 112, W - 160)
+                top = 900 - (n - 1) * 75 + k * 150
+                left = 130 + k * (W - 260 - units(plain(txt)) * fs) / max(1, n - 1)
+                du = max(0.2, le - st)
+                els.append(f'<div id="{eid}" class="clip layer" data-start="{st:.3f}" data-duration="{du:.3f}" '
+                           f'data-track-index="2"><div class="flow" style="top:{top}px;left:{left:.0f}px">'
+                           f'<div class="blk" style="font-size:{fs}px">{markup(txt)}</div></div></div>')
+                js.append(f'tl.fromTo("#{eid} .flow",{{x:-140,opacity:0}},{{x:0,opacity:1,duration:0.22,'
+                          f'ease:"power3.out"}},{st:.3f});')
+            elif sty == "bubble":  # 共感：中村さんの横に吹き出しで「わかります」＋ゆっくり寄る
+                fs = fit(txt, 96, 560)
+                els.append(f'<div id="{eid}" class="clip layer" data-start="{st:.3f}" data-duration="{du:.3f}" '
+                           f'data-track-index="2"><div class="bubble"><div style="font-size:{fs}px">{markup(txt)}</div></div></div>')
+                js.append(f'tl.fromTo("#{eid} .bubble",{{scale:0.3,opacity:0,rotation:-10}},{{scale:1,opacity:1,rotation:-4,'
+                          f'duration:0.3,ease:"back.out(2.6)"}},{st:.3f});')
+                js.append(f'tl.fromTo("#base",{{scale:1}},{{scale:1.1,duration:{max(0.3, le - ls):.3f},ease:"sine.out"}},{ls:.3f});')
+                js.append(f'tl.set("#base",{{scale:1}},{le:.3f});')
+            elif sty in ("quote", "tate"):
                 cols = txt.split("/")
                 fs = int(min(104 if sty == "tate" else 78, 1180 / (max(len(plain(c)) for c in cols) + 0.5)))
                 els.append(f'<div id="{eid}" class="clip layer" data-start="{st:.3f}" data-duration="{du:.3f}" '
@@ -362,13 +438,19 @@ def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Pa
                 js.append(f'tl.fromTo("#{eid} .ln",{{opacity:0,y:-24}},{{opacity:1,y:0,duration:0.22,stagger:0.25}},{st:.3f});')
             else:
                 base_fs = {"hook": 100, "red": 104, "mono": 96}.get(sty, 90)
-                fs = fit(txt, base_fs, W - 120)
+                if cr12:
+                    base_fs = int(base_fs * 1.2)  # 1つ1つ目立たせる：2割大きく
+                fs = fit(txt, base_fs, W - 100)
                 lines = txt.split("/")
                 cls = "cap" + (" stag" if len(lines) == 2 else "") + {"yellow": " yel", "red": " red", "mono": " mono"}.get(sty, "")
+                ctop = f' style="top:{s["cap_top"]}px"' if s.get("cap_top") else ""
                 els.append(f'<div id="{eid}" class="clip layer" data-start="{st:.3f}" data-duration="{du:.3f}" '
-                           f'data-track-index="2"><div class="{cls}"><div class="blk" style="font-size:{fs}px">'
+                           f'data-track-index="2"><div class="{cls}"{ctop}><div class="blk" style="font-size:{fs}px">'
                            f'{markup(txt)}</div></div></div>')
-                if sty in ("red", "hook") and k == len(s["parts"]) - 1:
+                if cr12:  # 毎回ポンと弾んで出る（効果音と合わせる）
+                    js.append(f'tl.fromTo("#{eid} .blk",{{scale:0.82,opacity:0}},{{scale:1,opacity:1,duration:0.16,'
+                              f'ease:"back.out(2.4)"}},{st:.3f});')
+                elif sty in ("red", "hook") and k == len(s["parts"]) - 1:
                     js.append(f'tl.fromTo("#{eid} .blk",{{scale:0.8,opacity:0}},{{scale:1,opacity:1,duration:0.16,'
                               f'ease:"back.out(2)"}},{st:.3f});')
             caps.append({"start": st, "end": round(st + du, 3), "hook": sty == "hook",
@@ -378,11 +460,20 @@ def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Pa
                        f'data-track-index="5"><div class="disc">{escape(s["disclaimer"])}</div></div>')
         if sty == "cta":
             els.append(f'<div id="c{s["i"]}" class="clip layer" data-start="{ls:.3f}" data-duration="{le - ls:.3f}" '
-                       f'data-track-index="4"><div class="ctabox">{markup(s["cta"])}</div>'
+                       f'data-track-index="4"><div class="ctabox"{(' style="background:' + s["cta_color"] + '"') if s.get("cta_color") else ""}>{markup(s["cta"])}</div>'
                        f'<div class="arrows"><span>↓</span><span>↓</span><span>↓</span></div></div>')
             js.append(f'tl.fromTo("#c{s["i"]} .ctabox",{{scale:0.85,opacity:0}},{{scale:1,opacity:1,duration:0.18}},{ls:.3f});')
             js.append(f'tl.fromTo("#c{s["i"]} .arrows span",{{y:0}},{{y:14,duration:0.28,yoyo:true,'
                       f'repeat:{max(1, int((le - ls) / 0.56))},stagger:0.07,ease:"sine.inOut"}},{ls + 0.15:.3f});')
+        if s.get("logo"):  # ロゴ画像（テロップの下）。logo: {"file", "y", "w"}
+            lg = s["logo"]
+            src_logo = p.dir / lg["file"]
+            shutil.copy2(src_logo, hf / src_logo.name)
+            els.append(f'<div id="lg{s["i"]}" class="clip layer" data-start="{ls:.3f}" data-duration="{le - ls:.3f}" '
+                       f'data-track-index="4"><div class="logo" style="top:{lg.get("y", 1240)}px">'
+                       f'<img src="{src_logo.name}" style="width:{lg.get("w", 190)}px;display:block"></div></div>')
+            js.append(f'tl.fromTo("#lg{s["i"]} .logo img",{{scale:0.5,opacity:0}},{{scale:1,opacity:1,duration:0.25,'
+                      f'ease:"back.out(2.4)"}},{ls + 0.1:.3f});')
         if sty == "card":
             sub, title = (s["card"].split("/") + [""])[:2]
             els.append(f'<div id="k{s["i"]}" class="clip layer" data-start="{ls:.3f}" data-duration="{le - ls:.3f}" '
@@ -391,8 +482,12 @@ def compose(p: ad.Project, segs: list[dict], total: float, base: Path, audio: Pa
             js.append(f'tl.fromTo("#k{s["i"]} .card",{{scale:0.4,opacity:0,rotation:-12}},{{scale:1,opacity:1,rotation:-3,'
                       f'duration:0.35,ease:"back.out(2.2)"}},{ls:.3f});')
 
+    CR12_CSS = (".blk { transform: none !important; text-shadow: 0 0 3px rgba(0,0,0,1), 0 0 7px rgba(0,0,0,.9), "
+                "0 0 16px rgba(0,0,0,.6), 0 6px 14px rgba(0,0,0,.6) !important; } .big { transform: none; }"
+                if LOOK.get("look") == "cr12b" else "")
+    CTA_BG = LOOK.get("cta_color", "#E8383D")
     html = f"""<!doctype html>
-<html lang="ja" data-resolution="portrait">
+<html lang="ja" data-resolution="{'landscape' if W > H else 'portrait'}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width={W}, height={H}" />
@@ -416,6 +511,7 @@ html, body {{ width: {W}px; height: {H}px; overflow: hidden; background: #000; }
 .y, .yel .blk {{ color: #FFE600; }}
 .big {{ display: inline-block; color: #FFE600; font-size: 1.45em; transform: skewX(-6deg); line-height: 1; }}
 .r, .red .blk {{ color: #FF2B2B; }}
+.g {{ color: #2BEA62; }}
 .mono .blk {{ color: #A95CFF; }}
 .quote {{ position: absolute; right: 80px; top: 300px; writing-mode: vertical-rl; color: #fff; font-weight: 900;
   line-height: 1.12; text-shadow: 0 2px 6px rgba(0,0,0,.6); }}
@@ -424,7 +520,20 @@ html, body {{ width: {W}px; height: {H}px; overflow: hidden; background: #000; }
   line-height: 1.08;
   text-shadow: 0 0 2px rgba(0,0,0,1), 0 0 5px rgba(0,0,0,.85), 0 0 12px rgba(0,0,0,.5), 0 5px 12px rgba(0,0,0,.5); }}
 .tate .ln {{ margin-left: 6px; }}
-.ctabox {{ position: absolute; left: 130px; right: 130px; top: 1260px; background: #E8383D; color: #fff;
+.hookv {{ position: absolute; right: 56px; top: 170px; writing-mode: vertical-rl; color: #FFE600; font-weight: 900;
+  line-height: 1.06; text-shadow: 0 0 3px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6), 0 6px 14px rgba(0,0,0,.6); }}
+.hookv .ln {{ display: block; margin-left: 6px; transform-origin: 50% 0; }}
+.hookv.hl {{ right: auto; left: 56px; }}
+.flow {{ position: absolute; }}
+.flow .blk {{ align-items: flex-start; }}
+.bubble {{ position: absolute; right: 70px; top: 130px; background: #fff; color: #F2711C; font-weight: 900;
+  padding: 18px 34px; border-radius: 60px; border: 6px solid #F2711C; box-shadow: 0 8px 20px rgba(0,0,0,.3);
+  transform-origin: 10% 100%; line-height: 1.2; }}
+.bubble::after {{ content: ""; position: absolute; left: 40px; bottom: -40px; border: 22px solid transparent;
+  border-top: 26px solid #F2711C; border-right: 30px solid #F2711C; transform: skewX(20deg); }}
+.logo {{ position: absolute; left: 50%; transform: translateX(-50%); }}
+{CR12_CSS}
+.ctabox {{ position: absolute; left: 130px; right: 130px; top: 1260px; background: {CTA_BG}; color: #fff;
   font-weight: 900; font-size: 50px; text-align: center; line-height: 1.3; padding: 22px 16px; border-radius: 26px;
   box-shadow: 0 8px 22px rgba(0,0,0,.3); }}
 .arrows {{ position: absolute; left: 0; right: 0; top: 1440px; display: flex; justify-content: center; gap: 90px;
@@ -508,6 +617,47 @@ def render_parts(p: ad.Project, segs: list[dict], total: float, base: Path, audi
     return raw
 
 
+def add_sfx(segs: list[dict], audio: Path, work: Path, cfg: dict) -> Path:
+    """テロップの出に「ポン」、大きい数字に「キラッ」、寄りに「シュッ」、冒頭に「ドン」を重ねる。"""
+    d = ad.STUDIO / "sfx"
+    ev = []
+    marked = cfg.get("mode") == "marked"  # marked：「ポン」は区間の pop（テロップ番号）に書いた所だけ＝起承転結の切り替わり・パワーワード
+    for s in segs:
+        sty = s.get("style", "normal")
+        pops = set(s.get("pop", []))
+        for k, part in enumerate(s["parts"]):
+            t = part["start"]
+            if marked and not (s["i"] == 0 and k == 0) and "#" not in part["text"]:
+                if k in pops:
+                    ev.append(("pop", t, cfg.get("pop", 0.45)))
+                continue
+            if s["i"] == 0 and k == 0:
+                ev.append(("don", t, cfg.get("don", 0.55)))
+            elif "#" in part["text"]:
+                ev.append(("kira", t, cfg.get("kira", 0.35)))
+            else:
+                ev.append(("pop", t, cfg.get("pop", 0.45)))
+        if "punch" in s and not (marked and (s["punch"] in pops or not s.get("whoosh", True))):
+            pt = s["parts"][min(s["punch"], len(s["parts"]) - 1)]["start"]
+            ev.append(("whoosh", max(0.0, pt - 0.12), cfg.get("whoosh", 0.4)))
+        if sty in ("cta", "card") and not marked:
+            ev.append(("pop", s["at"] + 0.05, cfg.get("pop", 0.45)))
+    files = {"pop": d / "pa1.mp3", "kira": d / "kira2.mp3", "whoosh": d / "highspeed-movement1.mp3",
+             "don": d / "don-1.mp3"}
+    ins, fc, labels = ["-i", audio], "", ["[0:a]"]
+    for n, (name, t, vol) in enumerate(ev):
+        ins += ["-i", files[name]]
+        tail = ",atrim=0:1.2" if name in ("don", "kira") else ""
+        fc += f"[{n + 1}:a]aresample=48000,aformat=channel_layouts=stereo,volume={vol}{tail},adelay={int(t * 1000)}:all=1[e{n}];"
+        labels.append(f"[e{n}]")
+    fc += "".join(labels) + f"amix=inputs={len(labels)}:normalize=0:duration=first[a]"
+    out = work / "voice_sfx.m4a"
+    ad.run(["ffmpeg", "-y", "-v", "error", *ins, "-filter_complex", fc, "-map", "[a]", "-c:a", "aac", "-b:a", "192k", out])
+    ad.save_json(work / "sfx.json", ev)
+    ad.log(f"効果音 {len(ev)} 個を入れました")
+    return out
+
+
 def cmd_talk(a) -> None:
     p = ad.Project(a.name)
     spec = ad.load_json(p.dir / "edit.json")
@@ -563,9 +713,13 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict, tag: str = "") 
             wj = work / f"words_{Path(s['video']).stem}_{va:.2f}.json"
             if not wj.exists():
                 wav = work / f"words_{Path(s['video']).stem}_{va:.2f}.wav"
-                ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{va:.3f}", "-to", f"{vb:.3f}", "-i", p.dir / s["video"],
+                # 短い区間（1秒前後）は whisper が落ちるため、前後 0.6 秒の余白込みで文字起こしし、区間内の単語だけ使う
+                pa = max(0.0, va - 0.6)
+                ad.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{pa:.3f}", "-to", f"{vb + 0.6:.3f}", "-i", p.dir / s["video"],
                         "-map", "0:a:0", "-ac", "1", "-ar", "16000", wav])
-                ad.save_json(wj, ad.transcribe_whisper(wav, wav.with_suffix(".whisper.json")))
+                ws = ad.transcribe_whisper(wav, wav.with_suffix(".whisper.json"))
+                ad.save_json(wj, [{**w, "start": w["start"] + pa - va, "end": w["end"] + pa - va} for w in ws
+                                  if va - 0.15 <= w["start"] + pa < vb])
             s["_words"] = [{**w, "start": w["start"] + va, "end": w["end"] + va} for w in ad.load_json(wj)]
     for s in segs:  # 撮影者の声の単語時刻（区間の元動画の時刻に換算）
         if s["who"] == "satsuei" and s.get("audio"):
@@ -577,6 +731,10 @@ def render_one(a, p: ad.Project, spec: dict, key: str, bg: dict, tag: str = "") 
             s["_words"] = [{**w, "start": w["start"] + off, "end": w["end"] + off} for w in ws]
     caption_parts(segs, words)
     ad.save_json(work / "timeline.json", [{k: (str(v) if isinstance(v, Path) else v) for k, v in s.items()} for s in segs])
+    LOOK.clear()
+    LOOK.update({k: spec[k] for k in ("look", "cta_color") if k in spec})
+    if spec.get("sfx"):  # テロップが出るたびの効果音を声のトラックに混ぜる（効果音ラボの素材）
+        audio = add_sfx(segs, audio, work, spec["sfx"])
     compose(p, segs, total, base, audio)  # 全体版（プレビュー・テロップ一覧用）
     lint = subprocess.run([ad.HF_BIN, "lint", str(p.hf)], capture_output=True, text=True)
     print((lint.stdout or lint.stderr).strip().splitlines()[-1])

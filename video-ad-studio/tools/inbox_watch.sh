@@ -10,8 +10,30 @@ mkdir "$LOCK" 2>/dev/null || exit 0          # 多重起動防止
 trap 'rmdir "$LOCK"' EXIT
 notify() { osascript -e "display notification \"$2\" with title \"動画広告スタジオ\" subtitle \"$1\"" >/dev/null 2>&1; }
 
+
+# --- 学習素材の取り込み ---------------------------------------------------
+# ① inbox/learn.txt に URL（X/YouTube 等）を1行ずつ貼る  ② inbox/学習_*.mp4 / learn_*.mp4 を置く
+# → tools/learn.sh で references/learn/ に取り込む（文字起こし＋フレーム）。要約は Claude Code で /learn-ref。
 shopt -s nullglob nocaseglob
+if [ -s "$STUDIO/inbox/learn.txt" ]; then
+  cp "$STUDIO/inbox/learn.txt" "$STUDIO/inbox/.learn.$$" && : > "$STUDIO/inbox/learn.txt"
+  while IFS= read -r url; do
+    case "$url" in http*) ;; *) continue ;; esac
+    { echo "=== learn $(date '+%F %T') $url"; "$STUDIO/tools/learn.sh" "$url" &&
+      notify "学習素材" "取り込み完了。Claude Code で /learn-ref を実行してください" ||
+      notify "学習素材" "取り込み失敗（inbox/.watch.log）"; } >>"$LOG" 2>&1
+  done < "$STUDIO/inbox/.learn.$$"; rm -f "$STUDIO/inbox/.learn.$$"
+fi
+for f in "$STUDIO"/inbox/学習_*.{mp4,mov,m4v,mkv,webm} "$STUDIO"/inbox/learn_*.{mp4,mov,m4v,mkv,webm}; do
+  s1=$(stat -f%z "$f"); sleep 10; s2=$(stat -f%z "$f"); [ "$s1" = "$s2" ] || continue
+  slug="$(date +%Y%m%d)-$(basename "${f%.*}" | tr ' /' '__')"
+  { "$STUDIO/tools/learn.sh" "$f" "$slug" && mv "$f" "$STUDIO/references/learn/$slug/original.${f##*.}" &&
+    notify "学習素材" "取り込み完了。/learn-ref を実行してください" ||
+    notify "学習素材" "取り込み失敗"; } >>"$LOG" 2>&1
+done
+
 for f in "$STUDIO"/inbox/*.{mp4,mov,m4v,mkv,webm}; do
+  case "$(basename "$f")" in 学習_*|learn_*) continue ;; esac
   # コピー途中のファイルを避ける：10秒間サイズが変わらなくなるまで待つ
   s1=$(stat -f%z "$f"); sleep 10; s2=$(stat -f%z "$f")
   [ "$s1" = "$s2" ] || continue
